@@ -2,7 +2,7 @@
 
 여러 연구실이 같이 쓰는 공동기기를 예약하고 기기별 매뉴얼을 보는 웹앱(PWA)이에요. 구글 계정으로 로그인해 가입 신청을 하고, 총관리자가 승인하면 쓸 수 있어요. 설치 없이 브라우저에서 열고, 폰에서는 홈 화면에 추가해 앱처럼 써요.
 
-**주소: https://kkonoo.github.io/equip-hub/** · 관리자 페이지: https://kkonoo.github.io/equip-hub/admin.html
+**주소: https://kkonoo.github.io/equip-med/** · 관리자 페이지: https://kkonoo.github.io/equip-med/admin.html
 
 ## 사용자 화면
 
