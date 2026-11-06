@@ -290,6 +290,10 @@ dialog section { display: flex; flex-direction: column; }
   .bk-scroll { max-height: max(360px, calc(100dvh - 300px)); }
 }
 
+/* ---------- 내 예약 ---------- */
+#tab-mine { display: flex; flex-direction: column; gap: 14px; }
+#tab-mine[hidden] { display: none; }
+
 /* ---------- 관리자 페이지 ---------- */
 .admin-seg { align-self: flex-start; flex-wrap: wrap; }
 .admin-seg .badge { margin-left: 3px; }
@@ -307,7 +311,8 @@ dialog section { display: flex; flex-direction: column; }
 .item-main.row input { flex: 1; max-width: 360px; }
 .item-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .item-sub { color: var(--muted); font-size: calc(13px * var(--fs)); }
-.item-note { font-size: calc(13px * var(--fs)); }
+.item-note { font-size: calc(13px * var(--fs)); white-space: pre-wrap; }
+.item.problem { box-shadow: inset 3px 0 0 var(--bad); padding-left: 12px; }
 .item-warn { font-size: calc(13px * var(--fs)); color: var(--warn); }
 .item-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .item-actions select { max-width: 220px; }

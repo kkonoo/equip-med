@@ -142,10 +142,10 @@ function adminFeeds() {
 }
 const pendingBookings = () => A.upcoming.filter(b => b.status === 'pending');
 const pendingUsers = () => A.users.filter(u => u.role === 'pending');
-window.resetFeeds = () => { // 로그아웃·계정 바뀜: sync.js가 구독을 끊은 뒤 부름
-  Object.assign(A, { upcoming: [], users: [], upKey: '', offUp: null, offUsers: null });
-  if (typeof bk !== 'undefined') Object.assign(bk, { sub: null, subKey: '', list: [] });
-};
+// 로그아웃·계정 바뀜: sync.js가 구독을 모두 끊은 뒤 부름 → 각 화면 파일이 넣어 둔 함수로 상태를 처음으로
+const resets = [];
+window.resetFeeds = () => resets.forEach(f => f());
+resets.push(() => Object.assign(A, { upcoming: [], users: [], upKey: '', offUp: null, offUsers: null }));
 
 // 지금 탭(페이지)을 데이터로 다시 그리기 — 각 화면 파일의 render 함수
 function render() {

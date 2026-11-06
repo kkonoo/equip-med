@@ -4,7 +4,7 @@
 const CACHE = 'equip-hub-v1';
 const SHELL = [
   './', 'index.html', 'admin.html', 'manifest.webmanifest', 'css/style.css',
-  'js/app.js', 'js/booking.js', 'js/equipment.js', 'js/admin.js', 'js/sync.js', 'js/firebase-config.js', /* 새 js 파일은 여기에 꼭 추가 */
+  'js/app.js', 'js/booking.js', 'js/mine.js', 'js/equipment.js', 'js/admin.js', 'js/sync.js', 'js/firebase-config.js', /* 새 js 파일은 여기에 꼭 추가 */
   'icons/app-192.png', 'icons/app-512.png', 'icons/app-maskable-192.png', 'icons/app-maskable-512.png',
 ];
 self.addEventListener('install', e => {

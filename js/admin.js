@@ -4,6 +4,7 @@ const ADMIN_TABS = [
   { id: 'bookings', label: '예약 승인', who: 'manager', render: renderApprovals, badge: () => pendingBookings().length },
   { id: 'users', label: '가입 승인', who: 'admin', render: renderUsers, badge: () => pendingUsers().length },
   { id: 'equip', label: '기기', who: 'manager', render: renderEquipAdmin },
+  { id: 'logs', label: '사용일지', who: 'manager', render: renderLogs },
   { id: 'labs', label: '연구실', who: 'admin', render: renderLabs },
 ];
 const adminTabs = () => ADMIN_TABS.filter(t => t.who === 'manager' || isAdmin());
@@ -355,6 +356,48 @@ function openEquipEdit(id) {
     } catch (x) { fail('저장하지 못했어요', x); }
   };
   dlg.showModal();
+}
+
+// ---------- 사용일지: 기기별 일지 목록, '문제 있었음'은 위로 ----------
+const AL = { equipId: '', off: null, logs: [], bookings: [] };
+resets.push(() => Object.assign(AL, { equipId: '', off: null, logs: [], bookings: [] }));
+function renderLogs(box) {
+  const scope = scopeEquip();
+  const id = scope.some(e => e.id === prefs.logEquip) ? prefs.logEquip : scope[0]?.id;
+  if (!id) { box.innerHTML = '<p class="empty">기기가 없어요.</p>'; return; }
+  if (AL.equipId !== id) { // 고른 기기의 일지와 예약(이름·예약 시간을 붙이려고)
+    AL.off?.();
+    Object.assign(AL, { equipId: id, logs: [], bookings: [] });
+    const a = window.cloud.watchEquipLogs(id, list => { AL.logs = list; render(); });
+    const b = window.cloud.watchEquipBookings(id, list => { AL.bookings = list; render(); });
+    AL.off = () => { a(); b(); };
+  }
+  const byId = new Map(AL.bookings.map(b => [b.id, b]));
+  const logs = AL.logs.slice().sort((a, b) => (b.problem === true) - (a.problem === true) || b.actualStart - a.actualStart);
+  const logged = new Set(AL.logs.map(l => l.id)), now = Date.now();
+  const missing = AL.bookings.filter(b => b.status === 'approved' && b.end <= now && !logged.has(b.id)).sort((a, b) => b.start - a.start);
+  box.innerHTML = `
+    <section class="panel">
+      <div class="panel-head"><h2>사용일지</h2>
+        <select id="logEquip" aria-label="기기">${scope.map(e => `<option value="${esc(e.id)}"${e.id === id ? ' selected' : ''}>${esc(e.name)}</option>`).join('')}</select>
+        <span class="hint">${logs.length}건 · 문제 있었음은 위로</span></div>
+      ${logs.length ? logs.map(l => {
+        const b = byId.get(l.id), moved = b && (b.start !== l.actualStart || b.end !== l.actualEnd);
+        return `<div class="item${l.problem ? ' problem' : ''}">
+          <div class="item-main">
+            <div class="item-title"><b>${esc(b?.userName || '')}</b> <span class="hint">${esc(labName(l.labId))}</span>${l.problem ? ' <span class="chip bad">문제 있었음</span>' : ''}</div>
+            <div class="item-sub">사용 ${esc(fmtRange(l.actualStart, l.actualEnd))}${moved ? ` · 예약 ${esc(fmtRange(b.start, b.end))}` : ''}</div>
+            ${l.note ? `<div class="item-note">${esc(l.note)}</div>` : ''}
+          </div></div>`;
+      }).join('') : '<p class="empty">아직 사용일지가 없어요.</p>'}
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>사용일지가 없는 지난 예약</h2><span class="hint">${missing.length}건</span></div>
+      ${missing.length ? missing.map(b => `<div class="item"><div class="item-main">
+          <div class="item-title"><b>${esc(b.userName)}</b> <span class="hint">${esc(labName(b.labId))}</span></div>
+          <div class="item-sub">${esc(fmtRange(b.start, b.end))}</div></div></div>`).join('') : '<p class="empty">없어요.</p>'}
+    </section>`;
+  $('logEquip').onchange = ev => { prefs.logEquip = ev.target.value; savePrefs(); ev.target.blur(); render(); };
 }
 
 // ---------- 연구실 (총관리자) ----------

@@ -98,6 +98,17 @@ async function start() {
       start: ts(start), end: ts(end), purpose, status, createdAt: now(), updatedAt: now(),
     }),
     cancelMine: id => F.updateDoc(ref('bookings', id), { status: 'cancelled', updatedAt: now() }),
+    watchMine: cb => watch(F.query(col('bookings'), F.where('uid', '==', S.user.uid)), cb, '내 예약'),
+
+    // ---------- 사용일지: logs/{예약 id} (예약 하나에 하나) ----------
+    watchMyLogs: cb => watch(F.query(col('logs'), F.where('uid', '==', S.user.uid)), cb, '사용일지'),
+    saveLog: (b, { actualStart, actualEnd, note, problem }, isNew) => F.setDoc(ref('logs', b.id), {
+      equipId: b.equipId, uid: S.user.uid, labId: b.labId || null,
+      actualStart: ts(actualStart), actualEnd: ts(actualEnd), note, problem,
+      updatedAt: now(), ...(isNew ? { createdAt: now() } : {}),
+    }, { merge: true }),
+    watchEquipLogs: (equipId, cb) => watch(F.query(col('logs'), F.where('equipId', '==', equipId)), cb, '사용일지'),
+    watchEquipBookings: (equipId, cb) => watch(F.query(col('bookings'), F.where('equipId', '==', equipId)), cb, '예약'),
 
     // ---------- 관리자 페이지 ----------
     // 다가오는 예약 (승인 대기 목록·겹침 경고·점검 기간 경고). equipIds가 null이면 전체(총관리자)

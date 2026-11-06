@@ -7,6 +7,7 @@ const bk = {
   list: [],             // 고른 기기의 예약 (end > 보는 기간 시작)
   scrollFor: '',        // 이 기기로 처음 그릴 때만 '예약 시작 시간'으로 스크롤
 };
+resets.push(() => Object.assign(bk, { sub: null, subKey: '', list: [] }));
 const narrow = matchMedia('(max-width: 900px)');
 narrow.addEventListener('change', () => { if (prefs.tab === 'book') render(); });
 const ACTIVE = new Set(['pending', 'approved']); // 시간을 차지하는 상태
