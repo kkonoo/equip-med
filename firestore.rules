@@ -1,0 +1,122 @@
+rules_version = '2';
+// 공동기기@KNUmed (equip-hub) — Firebase 콘솔 > Firestore Database > 규칙 에 그대로 붙여 넣어요.
+// 권한은 화면이 아니라 여기서 막아요. 로그인하지 않은 사람은 아무것도 읽지 못해요.
+//   users/{uid}           본인·총관리자만 읽음. 본인은 가입 신청(role pending)과 이름 수정만
+//   labs/{labId}          로그인한 모든 사람이 읽음(가입 폼), 쓰기는 총관리자
+//   equipment/{equipId}   승인된 사용자가 읽음. 총관리자는 전부, 담당자는 manual·rules·status·requiresApproval만
+//   bookings/{bookingId}  승인된 사용자가 읽음. 본인 예약 생성, 시작 전 본인 취소, 담당자·총관리자 승인·거절·취소
+//   logs/{bookingId}      본인·그 기기 담당자·총관리자가 읽음. 본인 예약이 승인되고 끝났을 때만 작성·수정
+// 예약끼리 시간이 겹치는지는 규칙으로 막을 수 없어요 (앱에서 저장 전에 확인, 담당자 화면에 겹침 경고).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function me() { return get(userPath()).data; }
+    // 승인된 사용자 = role이 member나 admin이고 비활성화되지 않음
+    function approved() { return signedIn() && exists(userPath()) && me().role in ['member', 'admin'] && me().active == true; }
+    function isAdmin() { return approved() && me().role == 'admin'; }
+    function equip(id) { return get(/databases/$(database)/documents/equipment/$(id)).data; }
+    function isManager(equipId) { return approved() && request.auth.uid in equip(equipId).get('managers', []); }
+    function onlyChanged(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+    function okName(v) { return v is string && v.size() > 0 && v.size() <= 40; }
+    // 서울(UTC+9) 기준 그날 0시 (ms)
+    function seoulDayStart(ms) { return ms - ((ms + 32400000) % 86400000); }
+
+    // ---------- 사용자 ----------
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      // 가입 신청: 본인 문서를 role pending으로만 만들 수 있음
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'email', 'labId', 'labName', 'role', 'active', 'createdAt'])
+        && request.resource.data.role == 'pending'
+        && request.resource.data.active == true
+        && request.resource.data.email == request.auth.token.email
+        && okName(request.resource.data.name)
+        && request.resource.data.labName is string && request.resource.data.labName.size() <= 60
+        && (request.resource.data.labId == null || exists(/databases/$(database)/documents/labs/$(request.resource.data.labId)))
+        && request.resource.data.createdAt == request.time;
+      // 본인은 이름만 고침. role·active·labId 등은 총관리자만
+      allow update: if (signedIn() && request.auth.uid == uid && onlyChanged(['name']) && okName(request.resource.data.name))
+        || isAdmin();
+      // 가입 거절 = 문서 지움 (다시 신청할 수 있음)
+      allow delete: if isAdmin();
+    }
+
+    // ---------- 연구실 ----------
+    match /labs/{labId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---------- 기기 ----------
+    function validEquip(d) {
+      return d.status in ['ok', 'maintenance', 'broken'] && d.requiresApproval is bool && d.rules is map;
+    }
+    match /equipment/{equipId} {
+      allow read: if approved();
+      allow create: if isAdmin() && validEquip(request.resource.data);
+      allow delete: if isAdmin();
+      allow update: if validEquip(request.resource.data) && (isAdmin()
+        || (isManager(equipId) && onlyChanged(['manual', 'rules', 'status', 'statusNote', 'statusUntil', 'requiresApproval', 'updatedAt'])));
+    }
+
+    // ---------- 예약 ----------
+    function validNewBooking(d) {
+      let e = equip(d.equipId);
+      let r = e.get('rules', {});
+      return d.keys().hasOnly(['equipId', 'uid', 'userName', 'labId', 'start', 'end', 'purpose', 'status', 'createdAt', 'updatedAt'])
+        && d.uid == request.auth.uid
+        && d.userName == me().name
+        && d.labId == me().get('labId', null)
+        && d.start is timestamp && d.end is timestamp && d.end > d.start
+        && d.end > request.time
+        && d.purpose is string && d.purpose.size() <= 100
+        && d.createdAt == request.time && d.updatedAt == request.time
+        // 승인 필요 기기는 pending, 아니면 approved
+        && d.status == (e.get('requiresApproval', true) ? 'pending' : 'approved')
+        // 점검·고장이면 새 예약을 받지 않음 (statusUntil이 있으면 그 뒤부터는 받음)
+        && (e.get('status', 'ok') == 'ok' || (e.get('statusUntil', null) is timestamp && d.start >= e.statusUntil))
+        // 1회 최대 시간, 오늘부터 N일 뒤까지 (비어 있으면 제한 없음)
+        && (r.get('maxHours', null) == null || d.end.toMillis() - d.start.toMillis() <= r.maxHours * 3600000)
+        && (r.get('maxDaysAhead', null) == null
+            || d.start.toMillis() < seoulDayStart(request.time.toMillis()) + (r.maxDaysAhead + 1) * 86400000);
+    }
+    // 본인: 시작 전에 승인 대기·승인 → 취소만
+    function ownerCancel() {
+      return resource.data.uid == request.auth.uid
+        && request.time < resource.data.start
+        && resource.data.status in ['pending', 'approved']
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.updatedAt == request.time
+        && onlyChanged(['status', 'updatedAt']);
+    }
+    // 담당자·총관리자: 승인·거절·취소 (처리한 사람·사유 기록)
+    function managerDecide() {
+      return (isAdmin() || isManager(resource.data.equipId))
+        && request.resource.data.status in ['approved', 'rejected', 'cancelled']
+        && request.resource.data.decidedBy == request.auth.uid
+        && request.resource.data.reason is string && request.resource.data.reason.size() <= 300
+        && request.resource.data.updatedAt == request.time
+        && onlyChanged(['status', 'decidedBy', 'decidedAt', 'reason', 'updatedAt']);
+    }
+    match /bookings/{bookingId} {
+      allow read: if approved();
+      allow create: if approved() && validNewBooking(request.resource.data);
+      allow update: if approved() && (ownerCancel() || managerDecide());
+    }
+
+    // ---------- 사용일지 (문서 id = 예약 id) ----------
+    function validLog(bookingId, d) {
+      let b = get(/databases/$(database)/documents/bookings/$(bookingId)).data;
+      return b.uid == request.auth.uid && b.status == 'approved' && b.end <= request.time
+        && d.keys().hasOnly(['equipId', 'uid', 'labId', 'actualStart', 'actualEnd', 'note', 'problem', 'createdAt', 'updatedAt'])
+        && d.uid == request.auth.uid && d.equipId == b.equipId && d.labId == b.labId
+        && d.actualStart is timestamp && d.actualEnd is timestamp && d.actualEnd > d.actualStart
+        && d.note is string && d.note.size() <= 1000 && d.problem is bool;
+    }
+    match /logs/{bookingId} {
+      allow read: if approved() && (resource.data.uid == request.auth.uid || isAdmin() || isManager(resource.data.equipId));
+      allow create, update: if approved() && validLog(bookingId, request.resource.data);
+    }
+  }
+}
