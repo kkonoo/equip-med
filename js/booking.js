@@ -48,7 +48,7 @@ function renderBooking() {
   const label = days === 7 ? `${fmtDay(from)} – ${fmtDay(to - DAY)}` : fmtDay(from);
   box.innerHTML = `
     <div class="bk-bar">
-      <select id="bkEquip" aria-label="${t('기기')}">${S.equipment.map(x => `<option value="${esc(x.id)}"${x.id === e.id ? ' selected' : ''}>${esc(x.name)}${x.status && x.status !== 'ok' ? ` (${STATUS[x.status]})` : ''}</option>`).join('')}</select>
+      <select id="bkEquip" aria-label="${t('기기')}">${byPlace(S.equipment).map(([place, list]) => `<optgroup label="${esc(place || t('위치 없음'))}">${list.map(x => `<option value="${esc(x.id)}"${x.id === e.id ? ' selected' : ''}>${esc(x.name)}${x.status && x.status !== 'ok' ? ` (${STATUS[x.status]})` : ''}</option>`).join('')}</optgroup>`).join('')}</select>
       ${statusChip(e)}
       <span class="chip ${e.requiresApproval === false ? 'quiet' : 'warn'}">${e.requiresApproval === false ? t('바로 확정') : t('승인 필요')}</span>
       <span class="spacer"></span>

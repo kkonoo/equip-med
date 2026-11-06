@@ -5,14 +5,19 @@ function renderEquipment() {
     box.innerHTML = `<p class="empty">${esc(isAdmin() ? t('아직 등록된 기기가 없어요. 관리자 페이지 > 기기에서 추가할 수 있어요.') : t('아직 등록된 기기가 없어요. 총관리자가 추가하면 여기에 보여요.'))}</p>`;
     return;
   }
-  box.innerHTML = `<div class="eq-grid">${S.equipment.map(e => `
+  // 같은 공간(위치의 첫 단어)끼리 묶고, 카드에는 위치의 나머지만
+  box.innerHTML = byPlace(S.equipment).map(([place, list]) => `
+    <section class="eq-group">
+      <h2 class="eq-place">📍 ${place ? esc(place) : t('위치 없음')} <span class="hint">${list.length}</span></h2>
+      <div class="eq-grid">${list.map(e => `
     <button type="button" class="eq-card panel" data-id="${esc(e.id)}">
       <span class="eq-head"><b>${esc(e.name)}</b>${statusChip(e)}</span>
-      ${e.location ? `<span class="hint">📍 ${esc(e.location)}</span>` : ''}
+      ${placeRest(e) ? `<span class="hint">${esc(placeRest(e))}</span>` : ''}
       <span class="hint">👤 ${managerNames(e).length ? esc(managerNames(e).join(', ')) : t('담당자 없음')}</span>
       ${statusLine(e) ? `<span class="hint warn-text">⚠ ${esc(statusLine(e))}</span>` : ''}
       <span class="chips"><span class="chip ${e.requiresApproval === false ? 'quiet' : 'warn'}">${e.requiresApproval === false ? t('바로 확정') : t('승인 필요')}</span></span>
-    </button>`).join('')}</div>`;
+    </button>`).join('')}</div>
+    </section>`).join('');
   box.querySelectorAll('.eq-card').forEach(b => { b.onclick = () => openEquip(b.dataset.id); });
 }
 

@@ -264,7 +264,7 @@ function openEquipEdit(id) {
       <fieldset${admin ? '' : ' disabled'}>
         <legend>기본${admin ? '' : ' (총관리자만 고칠 수 있어요)'}</legend>
         <label>이름<input name="name" maxlength="60" value="${esc(e.name)}" placeholder="예: 공초점 현미경 LSM 900"></label>
-        <label>위치<input name="location" maxlength="80" value="${esc(e.location || '')}" placeholder="예: 의학관 3층 312호"></label>
+        <label><span>위치 <span class="hint">· 첫 단어(호수)가 같은 기기끼리 사용자 화면에서 묶여 보여요</span></span><input name="location" maxlength="80" value="${esc(e.location || '')}" placeholder="예: N469 세포배양실"></label>
         <div class="field-col">담당자 <span class="hint">여러 명 고를 수 있어요</span>
           <div class="pick">${admin ? (people.length ? people.map(u => `<label class="check"><input type="checkbox" name="mgr" value="${esc(u.id)}"${(e.managers || []).includes(u.id) ? ' checked' : ''}> ${esc(u.name)} <span class="hint">${esc(labName(u.labId))}</span></label>`).join('') : '<span class="hint">승인된 사용자가 없어요</span>')
             : esc(managerNames(e).join(', ') || '담당자 없음')}</div>

@@ -76,6 +76,14 @@ function statusLine(e) { // 점검·고장일 때 사유와 기간
   return `${STATUS[e.status]}${e.statusNote ? ` · ${e.statusNote}` : ''}${until}`;
 }
 const safeUrl = u => (/^https?:\/\//i.test(u || '') ? u : null);
+// 위치의 첫 단어(호수·건물)가 같은 기기끼리 묶음 → [[공간, [기기…]], …]. 기기가 많은 공간부터(같으면 이름순), 위치 없는 기기는 맨 뒤
+const placeOf = e => (e.location || '').trim().split(/\s+/)[0];
+const placeRest = e => (e.location || '').trim().split(/\s+/).slice(1).join(' ');
+function byPlace(list) {
+  const m = new Map();
+  for (const e of list) m.set(placeOf(e), [...(m.get(placeOf(e)) || []), e]);
+  return [...m].sort(([a, x], [b, y]) => !a - !b || y.length - x.length || a.localeCompare(b, 'ko', { numeric: true }));
+}
 
 let toastTimer;
 function toast(text, ms = 2200) {

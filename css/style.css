@@ -214,6 +214,8 @@ main { flex: 1; display: flex; flex-direction: column; padding: 0 24px 32px; min
 }
 
 /* ---------- 기기 탭 ---------- */
+.eq-group + .eq-group { margin-top: 20px; }
+.eq-place { display: flex; align-items: baseline; gap: 8px; margin: 0 0 10px; font-size: calc(15px * var(--fs)); color: var(--accent); }
 .eq-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
 .eq-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; cursor: pointer; font: inherit; color: inherit; }
 .eq-card:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
