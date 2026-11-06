@@ -57,6 +57,26 @@ const BOOK_STATUS = { pending: '승인 대기', approved: '승인', rejected: '�
 
 // 기기의 지금 상태: 점검·고장이면 막힌 기간 [지금, statusUntil) (끝이 없으면 계속)
 function downUntil(e) { return e.status && e.status !== 'ok' ? (e.statusUntil ?? Infinity) : null; }
+// 예약 규칙: slotMinutes만 기본값 30분, 나머지는 비어 있으면 제한 없음
+const rulesOf = e => ({ slotMinutes: 30, maxHours: null, maxDaysAhead: null, openFrom: null, openTo: null, ...e?.rules });
+function ruleList(e) {
+  const r = rulesOf(e);
+  return [
+    `예약 단위 ${r.slotMinutes}분`,
+    r.maxHours ? `1회 최대 ${r.maxHours}시간` : '1회 시간 제한 없음',
+    r.maxDaysAhead != null ? `오늘부터 ${r.maxDaysAhead}일 뒤까지 예약` : '며칠 앞이든 예약',
+    r.openFrom && r.openTo ? `예약 가능 ${r.openFrom}–${r.openTo}` : '하루 종일 예약 가능',
+    e.requiresApproval === false ? '예약하면 바로 확정' : '담당자 승인 뒤 확정',
+  ];
+}
+const managerNames = e => (e.managers || []).map(uid => e.managerNames?.[uid] || '이름 없음');
+function statusChip(e) { const s = e.status || 'ok'; return `<span class="chip ${s}">${STATUS[s]}</span>`; }
+function statusLine(e) { // 점검·고장일 때 사유와 기간
+  if (!e.status || e.status === 'ok') return '';
+  const until = e.statusUntil ? ` · ${fmtDay(e.statusUntil)} ${hm(e.statusUntil)}까지` : '';
+  return `${STATUS[e.status]}${e.statusNote ? ` · ${e.statusNote}` : ''}${until}`;
+}
+const safeUrl = u => (/^https?:\/\//i.test(u || '') ? u : null);
 
 let toastTimer;
 function toast(text, ms = 2200) {

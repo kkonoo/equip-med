@@ -202,4 +202,23 @@ main { flex: 1; display: flex; flex-direction: column; padding: 0 24px 32px; min
   main { padding: 0 12px 24px; }
   .topbar .seg { order: 3; width: 100%; }
   .topbar .seg button { flex: 1; }
+  .wide-only { display: none; }
 }
+
+/* ---------- 기기 탭 ---------- */
+.eq-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.eq-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.eq-card:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.eq-head { display: flex; align-items: center; gap: 8px; width: 100%; font-size: calc(15px * var(--fs)); }
+.eq-head b { flex: 1; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.warn-text { color: var(--warn); }
+.notice { margin: 0; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, var(--warn) var(--tint), transparent); }
+dialog h3 { margin: 6px 0 6px; font-size: calc(14px * var(--fs)); }
+dialog section { display: flex; flex-direction: column; }
+.dlg-title { display: flex; align-items: center; gap: 8px; }
+.manual { white-space: pre-wrap; line-height: 1.6; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); max-height: 45vh; overflow: auto; }
+.links, .rules { margin: 0; padding-left: 18px; line-height: 1.8; }
+.links { list-style: none; padding-left: 0; }
+.links a { text-decoration: none; }
+.links a:hover { text-decoration: underline; }

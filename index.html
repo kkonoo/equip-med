@@ -24,7 +24,7 @@
     <button type="button" data-tab="equip">기기</button>
   </div>
   <div class="tools">
-    <a class="btn" id="adminLink" href="admin.html" hidden>관리자 페이지</a>
+    <a class="btn" id="adminLink" href="admin.html" hidden>관리<span class="wide-only">자 페이지</span></a>
     <button class="avatar" id="accountBtn" hidden></button>
   </div>
 </header>
@@ -44,7 +44,10 @@
   </section>
 </main>
 
+<dialog id="equipDlg"></dialog>
+
 <script src="js/app.js"></script>
+<script src="js/equipment.js"></script>
 <script type="module" src="js/sync.js"></script>
 <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
 </body>
