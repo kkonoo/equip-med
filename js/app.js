@@ -1,0 +1,284 @@
+// 공동기기@KNUmed (equip-hub) — 두 페이지(index.html, admin.html)가 같이 쓰는 부분
+// 상태(S), 로그인 상태에 따른 화면 전환(gate), 시간 도우미(Asia/Seoul), toast, 테마·글씨 크기, 설정 창
+// 데이터는 전부 Firestore에 있고 sync.js가 S에 채운 뒤 onAuth()·onData()를 불러요.
+const $ = id => document.getElementById(id);
+const PAGE = document.body.dataset.page; // 'user' | 'admin'
+const PKEY = 'equip-hub-prefs';
+
+const readJSON = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+let prefs = { theme: 'auto', fs: 1, ...readJSON(PKEY) };
+const savePrefs = () => { try { localStorage.setItem(PKEY, JSON.stringify(prefs)); } catch { /* 저장 못 해도 화면은 그대로 */ } };
+
+// sync.js가 채움. 시간은 전부 ms 숫자(Timestamp → toMillis)
+const S = {
+  user: null,        // Firebase 로그인 사용자
+  me: null,          // users/{uid} 문서 (없으면 null)
+  meLoaded: false,
+  labs: [],          // labs (order 순)
+  equipment: [],     // equipment (order 순) — 승인된 사용자만 받음
+  equipLoaded: false,
+};
+
+// ---------- 시간 (Asia/Seoul = UTC+9, 서머타임 없음) ----------
+const MIN = 60000, HOUR = 60 * MIN, DAY = 24 * HOUR, KST = 9 * HOUR;
+const DOW = '일월화수목금토';
+const pad = n => String(n).padStart(2, '0');
+function kp(ms) { // 서울 시각으로 나눈 값
+  const d = new Date(ms + KST);
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes(), dow: d.getUTCDay() };
+}
+const kms = (y, m, d, h = 0, mi = 0) => Date.UTC(y, m - 1, d, h, mi) - KST;
+const dayStart = ms => { const p = kp(ms); return kms(p.y, p.m, p.d); };
+const weekStart = ms => { const s = dayStart(ms); return s - ((kp(s).dow + 6) % 7) * DAY; }; // 월요일
+const monthStart = ms => { const p = kp(ms); return kms(p.y, p.m, 1); };
+const ymd = ms => { const p = kp(ms); return `${p.y}-${pad(p.m)}-${pad(p.d)}`; };
+const hm = ms => { const p = kp(ms); return `${pad(p.h)}:${pad(p.mi)}`; };
+const toMin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + (m || 0); }; // 'HH:MM' → 분
+const fromInput = (date, time = '00:00') => { const [y, m, d] = date.split('-').map(Number); return kms(y, m, d) + toMin(time) * MIN; };
+const toLocalInput = ms => (ms == null ? '' : `${ymd(ms)}T${hm(ms)}`); // <input type="datetime-local">
+const fromLocalInput = v => (v ? fromInput(...v.split('T')) : null);
+function fmtDay(ms) { const p = kp(ms); return `${p.m}/${p.d} (${DOW[p.dow]})`; }
+function fmtRange(s, e) {
+  if (e === dayStart(s) + DAY) return `${fmtDay(s)} ${hm(s)}–24:00`;
+  return dayStart(s) === dayStart(e) ? `${fmtDay(s)} ${hm(s)}–${hm(e)}` : `${fmtDay(s)} ${hm(s)} – ${fmtDay(e)} ${hm(e)}`;
+}
+const fmtHours = ms => { const h = Math.round(ms / HOUR * 10) / 10; return `${h}시간`; };
+
+// ---------- 공통 도우미 ----------
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const labName = id => S.labs.find(l => l.id === id)?.name || '';
+const equipById = id => S.equipment.find(e => e.id === id);
+const isAdmin = () => S.me?.role === 'admin' && S.me?.active !== false;
+const manages = e => isAdmin() || (e.managers || []).includes(S.user?.uid);
+const myEquip = () => S.equipment.filter(e => (e.managers || []).includes(S.user?.uid)); // 내가 담당자로 지정된 기기
+const canAdmin = () => isAdmin() || myEquip().length > 0;
+const STATUS = { ok: '정상', maintenance: '점검', broken: '고장' };
+const BOOK_STATUS = { pending: '승인 대기', approved: '승인', rejected: '거절', cancelled: '취소' };
+
+// 기기의 지금 상태: 점검·고장이면 막힌 기간 [지금, statusUntil) (끝이 없으면 계속)
+function downUntil(e) { return e.status && e.status !== 'ok' ? (e.statusUntil ?? Infinity) : null; }
+
+let toastTimer;
+function toast(text, ms = 2200) {
+  const t = $('toast');
+  t.textContent = text;
+  // popover = 맨 위 층: 열린 대화상자(dialog)보다 위에 보이게 다시 띄움
+  try { t.hidePopover(); t.showPopover(); } catch { /* popover 없는 브라우저: 그냥 아래에 보임 */ }
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+// 저장 실패 등: 무엇이 안 됐는지 + 원인 코드
+function fail(what, e) {
+  console.error(what, e);
+  toast(e?.code === 'permission-denied' ? `${what}: 권한이 없어요` : `${what}: ${e?.message || e}`, 3500);
+}
+
+// ---------- 테마·글씨 크기 ----------
+function applyTheme() {
+  const r = document.documentElement;
+  if (prefs.theme === 'auto') delete r.dataset.theme; else r.dataset.theme = prefs.theme;
+  r.style.setProperty('--fs', prefs.fs);
+  $('themeColor')?.setAttribute('content', getComputedStyle(r).getPropertyValue('--bg').trim());
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+
+// ---------- 화면 전환: 로그인 상태 → gate 또는 앱 ----------
+let shown = null; // 지금 보이는 gate 이름 또는 'app'
+function onAuth() {
+  showAccount();
+  if (!S.user) return gate('login');
+  if (!S.meLoaded) return gate('loading');
+  if (!S.me) return gate('signup');
+  if (S.me.active === false) return gate('inactive');
+  if (S.me.role === 'pending') return gate('pending');
+  if (!S.equipLoaded) return gate('loading');
+  if (PAGE === 'admin' && !canAdmin()) return gate('forbidden');
+  showApp();
+}
+function onData() { // sync.js: 기기·연구실 목록이 바뀜
+  if (shown === 'app' && PAGE === 'admin' && !canAdmin()) return onAuth();
+  if (shown === 'app') render(); else onAuth();
+}
+function showApp() {
+  $('gate').hidden = true;
+  $('app').hidden = false;
+  document.body.classList.add('in-app');
+  if (shown !== 'app') { shown = 'app'; if (window.appStart) return window.appStart(); }
+  render();
+}
+// 지금 탭(페이지)을 데이터로 다시 그리기 — 각 화면 파일의 render 함수
+function render() {
+  if (shown !== 'app') return;
+  showAccount();
+  if (PAGE === 'admin') return window.renderAdmin?.();
+  ({ book: window.renderBooking, mine: window.renderMine, equip: window.renderEquipment })[prefs.tab]?.();
+}
+
+const GATES = {
+  loading: () => '<p class="hint">불러오는 중이에요…</p>',
+  setup: () => `
+    <h2>설정이 필요해요</h2>
+    <p>아직 Firebase 프로젝트가 연결되지 않았어요.</p>
+    <ol class="steps">
+      <li>Firebase 콘솔에서 프로젝트를 만들고 Authentication(Google)과 Firestore를 켜요.</li>
+      <li>프로젝트 설정 &gt; 내 앱(웹)의 <code>firebaseConfig</code> 값을 <code>js/firebase-config.js</code>에 넣어요.</li>
+      <li><code>firestore.rules</code>를 Firestore 규칙에 붙여 넣어요.</li>
+    </ol>
+    <p class="hint">자세한 순서는 README의 '처음 쓸 때'에 있어요.</p>`,
+  error: () => `
+    <h2>연결하지 못했어요</h2>
+    <p>Firebase를 불러오지 못했어요. 인터넷 연결을 확인하고 새로 고침해 주세요.</p>
+    <button class="btn" onclick="location.reload()">새로 고침</button>`,
+  login: () => `
+    <h2>공동기기@KNUmed</h2>
+    <p>연구실이 같이 쓰는 기기를 예약하고 매뉴얼을 볼 수 있어요.<br>Google 계정으로 로그인해 주세요.</p>
+    <button class="btn primary" id="gateLogin">Google로 로그인</button>`,
+  signup: () => `
+    <h2>가입 신청</h2>
+    <p>처음 오셨네요. 이름과 소속 연구실을 적어 주세요. 총관리자가 승인하면 쓸 수 있어요.</p>
+    <form id="signupForm" class="form">
+      <label>이름<input name="name" required maxlength="40" autocomplete="name"></label>
+      <label>연구실
+        <select name="lab" required>
+          <option value="" disabled selected>고르세요</option>
+          ${S.labs.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('')}
+          <option value="__other">목록에 없어요 (직접 입력)</option>
+        </select>
+      </label>
+      <label id="labOtherRow" hidden>연구실 이름<input name="labOther" maxlength="60" placeholder="예: 분자생물학 연구실"></label>
+      <p class="hint">${esc(S.user?.email || '')} 계정으로 신청해요.</p>
+      <div class="actions"><button type="button" class="btn" id="gateLogout">로그아웃</button><button class="btn primary">신청</button></div>
+    </form>`,
+  pending: () => `
+    <h2>승인 대기 중이에요</h2>
+    <p>가입 신청을 보냈어요. 총관리자가 승인하면 바로 쓸 수 있어요.</p>
+    <dl class="kv">
+      <dt>이름</dt><dd>${esc(S.me?.name)}</dd>
+      <dt>연구실</dt><dd>${esc(labName(S.me?.labId) || S.me?.labName)}</dd>
+      <dt>계정</dt><dd>${esc(S.me?.email)}</dd>
+    </dl>
+    <button class="btn" id="gateLogout">로그아웃</button>`,
+  inactive: () => `
+    <h2>이용이 중지된 계정이에요</h2>
+    <p>총관리자에게 문의해 주세요.</p>
+    <button class="btn" id="gateLogout">로그아웃</button>`,
+  forbidden: () => `
+    <h2>관리자 페이지는 열 수 없어요</h2>
+    <p>기기 담당자와 총관리자만 볼 수 있어요.</p>
+    <a class="btn" href="./">예약 화면으로</a>`,
+};
+function gate(name) {
+  $('app').hidden = true;
+  $('gate').hidden = false;
+  document.body.classList.remove('in-app');
+  // 가입 폼은 입력 중에 연구실 목록이 바뀌어도 다시 그리지 않음
+  if (shown === name && name === 'signup') return;
+  shown = name;
+  $('gate').innerHTML = `<div class="panel gate-card">${GATES[name]()}</div>`;
+  $('gateLogin')?.addEventListener('click', () => window.cloud?.login());
+  $('gateLogout')?.addEventListener('click', () => window.cloud?.logout());
+  const f = $('signupForm');
+  if (f) {
+    f.name.value = S.user?.displayName || '';
+    f.lab.onchange = () => { $('labOtherRow').hidden = f.lab.value !== '__other'; f.labOther.required = f.lab.value === '__other'; };
+    f.onsubmit = async ev => {
+      ev.preventDefault();
+      const other = f.lab.value === '__other';
+      const labId = other ? null : f.lab.value;
+      const lab = other ? f.labOther.value.trim() : labName(labId);
+      try { await window.cloud.signup({ name: f.name.value.trim(), labId, labName: lab }); toast('가입 신청을 보냈어요'); }
+      catch (e) { fail('신청하지 못했어요', e); }
+    };
+  }
+}
+
+// ---------- 위 오른쪽 계정 버튼 + 설정 창 ----------
+function showAccount() {
+  const b = $('accountBtn');
+  b.hidden = !S.user;
+  if (!S.user) return;
+  b.textContent = (S.me?.name || S.user.displayName || S.user.email || '?').slice(0, 1);
+  b.title = `${S.user.email} · 설정`;
+  const link = $('adminLink');
+  if (link) link.hidden = !(shown === 'app' && canAdmin());
+}
+document.body.insertAdjacentHTML('beforeend', `
+<dialog id="settingsDlg">
+  <form method="dialog" class="form" id="settingsForm">
+    <h2>설정</h2>
+    <fieldset id="meBox">
+      <legend>내 정보</legend>
+      <label>이름<span class="row"><input name="name" maxlength="40"><button type="button" class="btn" id="saveNameBtn">저장</button></span></label>
+      <p class="hint" id="meInfo"></p>
+    </fieldset>
+    <fieldset>
+      <legend>화면</legend>
+      <div class="field">테마 <div class="seg" id="themeSeg"><button type="button" data-v="auto">자동</button><button type="button" data-v="light">라이트</button><button type="button" data-v="dark">다크</button></div></div>
+      <div class="field">글씨 크기 <div class="seg" id="fsSeg"><button type="button" data-v="0.9">작게</button><button type="button" data-v="1">보통</button><button type="button" data-v="1.15">크게</button><button type="button" data-v="1.3">더 크게</button></div></div>
+    </fieldset>
+    <div class="actions"><button type="button" class="btn danger" id="logoutBtn">로그아웃</button><button class="btn primary">닫기</button></div>
+  </form>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite" popover="manual"></div>`);
+
+function openSettings() {
+  const f = $('settingsForm');
+  f.name.value = S.me?.name || '';
+  $('meBox').hidden = !S.me;
+  const role = S.me?.role === 'admin' ? '총관리자' : S.me?.role === 'pending' ? '가입 대기' : '사용자';
+  const managed = myEquip().map(e => e.name).join(', ');
+  $('meInfo').textContent = `${S.user?.email || ''} · ${labName(S.me?.labId) || S.me?.labName || '연구실 없음'} · ${role}${managed ? ` · 담당: ${managed}` : ''}`;
+  markSeg($('themeSeg'), prefs.theme);
+  markSeg($('fsSeg'), String(prefs.fs));
+  $('settingsDlg').showModal();
+}
+function markSeg(seg, v) { for (const b of seg.querySelectorAll('button')) b.classList.toggle('on', b.dataset.v === v); }
+$('accountBtn').onclick = openSettings;
+$('themeSeg').onclick = e => { const v = e.target.dataset?.v; if (!v) return; prefs.theme = v; savePrefs(); applyTheme(); markSeg($('themeSeg'), v); };
+$('fsSeg').onclick = e => { const v = e.target.dataset?.v; if (!v) return; prefs.fs = Number(v); savePrefs(); applyTheme(); markSeg($('fsSeg'), v); };
+$('logoutBtn').onclick = () => { $('settingsDlg').close(); window.cloud?.logout(); };
+$('saveNameBtn').onclick = async () => {
+  const name = $('settingsForm').name.value.trim();
+  if (!name || name === S.me?.name) return;
+  try { await window.cloud.updateMyName(name); toast('이름을 바꿨어요. 새 예약부터 이 이름으로 보여요'); }
+  catch (e) { fail('이름을 바꾸지 못했어요', e); }
+};
+
+// ---------- 탭(.seg) ----------
+// 버튼 data-tab → 같은 id의 .tab 을 보이게. key: prefs에 기억할 이름
+function bindTabs(seg, key, onChange) {
+  const show = t => {
+    for (const b of seg.querySelectorAll('button')) b.classList.toggle('on', b.dataset.tab === t);
+    for (const el of document.querySelectorAll('.tab')) el.hidden = el.id !== `tab-${t}`;
+    prefs[key] = t; savePrefs();
+    onChange?.(t);
+  };
+  seg.addEventListener('click', e => { const t = e.target.closest('button')?.dataset.tab; if (t) show(t); });
+  return show;
+}
+
+// ---------- 폰 뒤로 가기: 열린 창 닫기 → 첫 탭으로 → 한 번 더 누르면 종료 ----------
+if (matchMedia('(pointer: coarse)').matches) {
+  let lastBack = 0;
+  history.pushState(null, '');
+  addEventListener('popstate', () => {
+    const open = document.querySelector('dialog[open]');
+    if (open) open.close();
+    else if (window.backToMain?.()) { /* 첫 탭으로 돌아감 */ }
+    else if (Date.now() - lastBack < 2000) { history.back(); return; }
+    else { lastBack = Date.now(); toast('한 번 더 누르면 종료돼요'); }
+    history.pushState(null, '');
+  });
+}
+
+// 사용자 화면(index.html)의 세 탭
+if (PAGE === 'user') {
+  const showTab = bindTabs($('tabSeg'), 'tab', render);
+  window.goTab = showTab;
+  window.appStart = () => showTab(['book', 'mine', 'equip'].includes(prefs.tab) ? prefs.tab : 'book');
+  window.backToMain = () => { if (prefs.tab === 'book') return false; showTab('book'); return true; };
+}
+
+applyTheme();
+gate('loading');
