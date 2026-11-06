@@ -523,7 +523,7 @@ function renderData(box) {
     try {
       const data = await window.cloud.backup();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `equip-hub-backup-${ymd(Date.now())}.json` });
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `equip-med-backup-${ymd(Date.now())}.json` });
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       $('backupInfo').textContent = ['users', 'labs', 'equipment', 'bookings', 'logs'].map(k => `${k} ${data[k].length}`).join(' · ');

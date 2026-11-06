@@ -1,8 +1,8 @@
-# 공동기기@KNUmed (equip-hub)
+# 공동기기@KNUmed (equip-med)
 
 여러 연구실이 같이 쓰는 공동기기를 예약하고 기기별 매뉴얼을 보는 웹앱(PWA)이에요. 구글 계정으로 로그인해 가입 신청을 하고, 총관리자가 승인하면 쓸 수 있어요. 설치 없이 브라우저에서 열고, 폰에서는 홈 화면에 추가해 앱처럼 써요.
 
-**주소: https://kkonoo.github.io/equip-hub/** · 관리자 페이지: https://kkonoo.github.io/equip-hub/admin.html
+**주소: https://kkonoo.github.io/equip-med/** · 관리자 페이지: https://kkonoo.github.io/equip-med/admin.html
 
 ## 사용자 화면
 
@@ -74,8 +74,8 @@
 - 시간은 Firestore Timestamp로 저장하고 화면은 서울 시간(Asia/Seoul)으로 보여 줘요.
 - 예약에는 이름 · 연구실을, 기기에는 담당자 이름(managerNames)을 복사해 둬요. `users`는 본인과 총관리자만 읽을 수 있어서, 그리드와 기기 카드를 그릴 때 `users`를 읽지 않으려고요.
 - 권한은 화면이 아니라 [`firestore.rules`](firestore.rules)에서 막아요. 로그인하지 않은 사람은 아무것도 못 읽고, 가입 대기 · 비활성 사용자는 연구실 목록과 자기 문서만 읽어요. 예약을 만들 때 규칙에서도 본인 · 이름 · 연구실, 승인 필요 여부에 맞는 상태, 점검 · 고장 기간, 1회 최대 시간, 며칠 앞까지를 확인해요. 예약끼리 겹치는지는 규칙으로 막을 수 없어요.
-- 백업 파일(`equip-hub-backup-날짜.json`)에는 이름 · 이메일이 들어 있어요. 저장소에는 올리지 마세요 (`.gitignore`에 들어 있어요).
-- 이 브라우저에는 언어 · 테마 · 글씨 크기 · 마지막 탭 · 고른 기기만 `equip-hub-prefs`(localStorage)에 저장해요. Firestore 기기 캐시는 같은 주소의 다른 앱과 나눠 쓰는 여러 탭 방식으로 열어요.
+- 백업 파일(`equip-med-backup-날짜.json`)에는 이름 · 이메일이 들어 있어요. 저장소에는 올리지 마세요 (`.gitignore`에 들어 있어요).
+- 이 브라우저에는 언어 · 테마 · 글씨 크기 · 마지막 탭 · 고른 기기만 `equip-med-prefs`(localStorage)에 저장해요. Firestore 기기 캐시는 같은 주소의 다른 앱과 나눠 쓰는 여러 탭 방식으로 열어요.
 
 ## 첫 버전에서 뺀 것
 

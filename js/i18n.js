@@ -4,7 +4,7 @@
 // 관리자 페이지(admin.html)는 한국어로 고정. 언어는 처음엔 브라우저 언어를 따르고, 로그인 화면·설정에서 바꿔요.
 const LANG = (() => {
   if (document.body.dataset.page === 'admin') return 'ko';
-  try { const p = JSON.parse(localStorage.getItem('equip-hub-prefs')); if (p?.lang === 'ko' || p?.lang === 'en') return p.lang; } catch { /* 없음 */ }
+  try { const p = JSON.parse(localStorage.getItem('equip-med-prefs')); if (p?.lang === 'ko' || p?.lang === 'en') return p.lang; } catch { /* 없음 */ }
   return /^ko\b/i.test(navigator.language || '') ? 'ko' : 'en';
 })();
 document.documentElement.lang = LANG;

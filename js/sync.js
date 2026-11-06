@@ -121,7 +121,7 @@ async function start() {
     },
     // 전체 백업: 다섯 컬렉션을 그대로 (시간은 ISO 문자열로)
     backup: async () => {
-      const out = { app: 'equip-hub', exportedAt: new Date().toISOString() };
+      const out = { app: 'equip-med', exportedAt: new Date().toISOString() };
       for (const name of ['users', 'labs', 'equipment', 'bookings', 'logs']) {
         out[name] = (await F.getDocs(col(name))).docs.map(d => {
           const o = { id: d.id, ...d.data() };

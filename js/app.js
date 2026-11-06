@@ -1,9 +1,9 @@
-// 공동기기@KNUmed (equip-hub) — 두 페이지(index.html, admin.html)가 같이 쓰는 부분
+// 공동기기@KNUmed (equip-med) — 두 페이지(index.html, admin.html)가 같이 쓰는 부분
 // 상태(S), 로그인 상태에 따른 화면 전환(gate), 시간 도우미(Asia/Seoul), toast, 테마·글씨 크기, 설정 창
 // 데이터는 전부 Firestore에 있고 sync.js가 S에 채운 뒤 onAuth()·onData()를 불러요.
 const $ = id => document.getElementById(id);
 const PAGE = document.body.dataset.page; // 'user' | 'admin'
-const PKEY = 'equip-hub-prefs';
+const PKEY = 'equip-med-prefs';
 
 const readJSON = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 let prefs = { theme: 'auto', fs: 1, ...readJSON(PKEY) };

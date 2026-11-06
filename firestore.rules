@@ -1,5 +1,5 @@
 rules_version = '2';
-// 공동기기@KNUmed (equip-hub) — Firebase 콘솔 > Firestore Database > 규칙 에 그대로 붙여 넣어요.
+// 공동기기@KNUmed (equip-med) — Firebase 콘솔 > Firestore Database > 규칙 에 그대로 붙여 넣어요.
 // 권한은 화면이 아니라 여기서 막아요. 로그인하지 않은 사람은 아무것도 읽지 못해요.
 //   users/{uid}           본인·총관리자만 읽음. 본인은 가입 신청(role pending)과 이름 수정만
 //   labs/{labId}          로그인한 모든 사람이 읽음(가입 폼), 쓰기는 총관리자

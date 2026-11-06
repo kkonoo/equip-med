@@ -242,4 +242,5 @@ firebase-config.js는 null로 두고, 설정이 없을 때 안내 화면이 나�
 | 담당자 이름 | users는 본인 · 총관리자만 읽으므로 equipment.managerNames{uid: 이름}에 복사해 둠 (필드 추가) |
 | 인덱스 | 스펙의 (status + equipId) 대신 (equipId + end)를 씀: 그리드 · 겹침 확인 · 관리자 승인 목록이 'equipId == X, end > 시각' 질의. (equipId + start)는 통계 |
 | 통계 | 끝난 승인 예약만, 예약이 시작한 달 기준 |
+| 저장소 이름 | `kkonoo/equip-hub` → `kkonoo/equip-med`로 바뀜. 주소 https://kkonoo.github.io/equip-med/, manifest id `/equip-med/`, 저장 키·캐시 이름·백업 파일은 `equip-med-`로 시작. 위 본문의 equip-hub는 equip-med로 읽기 |
 | 영어 화면 | 사용자 화면(로그인 · 가입 · 예약 · 내 예약 · 기기 · 설정)만 한국어 / English. 관리자 페이지는 한국어 |

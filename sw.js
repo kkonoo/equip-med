@@ -1,7 +1,7 @@
 // 오프라인에서도 열리게 하는 서비스 워커.
 // 온라인이면 항상 새 파일을 받고(업데이트 바로 반영), 오프라인이면 저장해 둔 파일을 씀.
 // 같은 주소(kkonoo.github.io)의 다른 앱과 캐시 저장소를 같이 쓰므로 이름을 다르게, 남의 캐시는 지우지 않기
-const CACHE = 'equip-hub-v1';
+const CACHE = 'equip-med-v1';
 const SHELL = [
   './', 'index.html', 'admin.html', 'manifest.webmanifest', 'css/style.css',
   'js/i18n.js', 'js/app.js', 'js/booking.js', 'js/mine.js', 'js/equipment.js', 'js/stats.js', 'js/admin.js', 'js/sync.js', 'js/firebase-config.js', /* 새 js 파일은 여기에 꼭 추가 */
