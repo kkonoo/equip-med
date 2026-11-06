@@ -127,9 +127,30 @@ function showApp() {
   if (shown !== 'app') { shown = 'app'; if (window.appStart) return window.appStart(); }
   render();
 }
+// ---------- 담당자·총관리자용 실시간 목록 (관리자 페이지 + 사용자 화면의 배지) ----------
+const A = { upcoming: [], users: [], upKey: '', offUp: null, offUsers: null, since: 0 };
+function adminFeeds() {
+  if (!canAdmin()) return;
+  const ids = isAdmin() ? null : myEquip().map(e => e.id);
+  const key = ids ? ids.join(',') : '*';
+  if (A.upKey !== key) { // 담당 기기가 바뀌면 다시 구독
+    A.offUp?.();
+    A.upKey = key; A.upcoming = []; A.since = Date.now();
+    A.offUp = window.cloud.watchUpcoming(ids, A.since, list => { A.upcoming = list; render(); });
+  }
+  if (isAdmin() && !A.offUsers) A.offUsers = window.cloud.watchUsers(list => { A.users = list; render(); });
+}
+const pendingBookings = () => A.upcoming.filter(b => b.status === 'pending');
+const pendingUsers = () => A.users.filter(u => u.role === 'pending');
+window.resetFeeds = () => { // 로그아웃·계정 바뀜: sync.js가 구독을 끊은 뒤 부름
+  Object.assign(A, { upcoming: [], users: [], upKey: '', offUp: null, offUsers: null });
+  if (typeof bk !== 'undefined') Object.assign(bk, { sub: null, subKey: '', list: [] });
+};
+
 // 지금 탭(페이지)을 데이터로 다시 그리기 — 각 화면 파일의 render 함수
 function render() {
   if (shown !== 'app') return;
+  adminFeeds();
   showAccount();
   if (PAGE === 'admin') return window.renderAdmin?.();
   ({ book: window.renderBooking, mine: window.renderMine, equip: window.renderEquipment })[prefs.tab]?.();
@@ -225,7 +246,12 @@ function showAccount() {
   b.textContent = (S.me?.name || S.user.displayName || S.user.email || '?').slice(0, 1);
   b.title = `${S.user.email} · 설정`;
   const link = $('adminLink');
-  if (link) link.hidden = !(shown === 'app' && canAdmin());
+  if (link) {
+    link.hidden = !(shown === 'app' && canAdmin());
+    const n = pendingBookings().length + pendingUsers().length; // 처리할 일 (알림 대신)
+    $('adminBadge').hidden = !n;
+    $('adminBadge').textContent = n;
+  }
 }
 document.body.insertAdjacentHTML('beforeend', `
 <dialog id="settingsDlg">

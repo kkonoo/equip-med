@@ -34,9 +34,12 @@ async function start() {
     return o;
   }
   const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0) || String(a.name).localeCompare(String(b.name), 'ko');
-  // 받은 목록을 cb(목록)으로 넘기는 실시간 구독. 돌려준 함수를 부르면 끊김
+  // 받은 목록을 cb(목록)으로 넘기는 실시간 구독. 돌려준 함수를 부르면 끊김 (로그아웃하면 전부 끊김)
+  const live = new Set();
   function watch(q, cb, what) {
-    return F.onSnapshot(q, snap => cb(snap.docs.map(plain)), e => fail(`${what}을(를) 불러오지 못했어요`, e));
+    const off = F.onSnapshot(q, snap => cb(snap.docs.map(plain)), e => fail(`${what}을(를) 불러오지 못했어요`, e));
+    live.add(off);
+    return () => { live.delete(off); off(); };
   }
 
   // ---------- 로그인 ----------
@@ -46,7 +49,11 @@ async function start() {
   const logout = () => A.signOut(auth);
 
   let unsubs = [], unsubEquip = null;
-  const stop = () => { unsubs.forEach(f => f()); unsubs = []; unsubEquip?.(); unsubEquip = null; };
+  const stop = () => {
+    unsubs.forEach(f => f()); unsubs = []; unsubEquip?.(); unsubEquip = null;
+    live.forEach(f => f()); live.clear();
+    window.resetFeeds?.(); // 화면 쪽 구독 상태도 처음으로
+  };
 
   A.onAuthStateChanged(auth, u => {
     stop();
@@ -91,5 +98,33 @@ async function start() {
       start: ts(start), end: ts(end), purpose, status, createdAt: now(), updatedAt: now(),
     }),
     cancelMine: id => F.updateDoc(ref('bookings', id), { status: 'cancelled', updatedAt: now() }),
+
+    // ---------- 관리자 페이지 ----------
+    // 다가오는 예약 (승인 대기 목록·겹침 경고·점검 기간 경고). equipIds가 null이면 전체(총관리자)
+    // 'in'은 30개까지 — 담당 기기가 그보다 많을 일은 없다고 봄
+    watchUpcoming: (equipIds, after, cb) => watch(equipIds
+      ? F.query(col('bookings'), F.where('equipId', 'in', equipIds.length ? equipIds : ['-']), F.where('end', '>', ts(after)))
+      : F.query(col('bookings'), F.where('end', '>', ts(after))), cb, '예약'),
+    // 담당자·총관리자: 승인·거절·취소 (사유와 처리한 사람 기록)
+    decide: (id, status, reason = '') => F.updateDoc(ref('bookings', id), {
+      status, reason, decidedBy: S.user.uid, decidedAt: now(), updatedAt: now(),
+    }),
+    watchUsers: cb => watch(col('users'), cb, '사용자 목록'),
+    approveUser: (uid, labId) => F.updateDoc(ref('users', uid), { role: 'member', labId, active: true, approvedBy: S.user.uid, approvedAt: now() }),
+    rejectUser: uid => F.deleteDoc(ref('users', uid)), // 신청이 지워져서 다시 신청할 수 있음
+    updateUser: (uid, patch) => F.updateDoc(ref('users', uid), patch),
+    addLab: async name => (await F.addDoc(col('labs'), { name, order: Math.max(0, ...S.labs.map(l => l.order ?? 0)) + 1 })).id,
+    updateLab: (id, patch) => F.updateDoc(ref('labs', id), patch),
+    saveEquipment: (id, data) => {
+      const d = { ...data, updatedAt: now() };
+      if ('statusUntil' in d) d.statusUntil = ts(d.statusUntil);
+      return id ? F.updateDoc(ref('equipment', id), d) : F.addDoc(col('equipment'), d);
+    },
+    deleteEquipment: id => F.deleteDoc(ref('equipment', id)),
+    reorder: (name, ids) => { // 목록 순서대로 order = 1, 2, 3…
+      const b = F.writeBatch(fs);
+      ids.forEach((id, i) => b.update(ref(name, id), { order: i + 1 }));
+      return b.commit();
+    },
   };
 }

@@ -207,6 +207,7 @@ main { flex: 1; display: flex; flex-direction: column; padding: 0 24px 32px; min
   .topbar .seg { order: 3; width: 100%; }
   .topbar .seg button { flex: 1; }
   .wide-only { display: none; }
+  .app-title .sub { display: none; }
 }
 
 /* ---------- 기기 탭 ---------- */
@@ -287,4 +288,56 @@ dialog section { display: flex; flex-direction: column; }
   .bk-bar .spacer { display: none; }
   .bk-nav { margin-left: auto; }
   .bk-scroll { max-height: max(360px, calc(100dvh - 300px)); }
+}
+
+/* ---------- 관리자 페이지 ---------- */
+.admin-seg { align-self: flex-start; flex-wrap: wrap; }
+.admin-seg .badge { margin-left: 3px; }
+#adminTabs .tab { display: flex; flex-direction: column; gap: 14px; }
+#adminTabs .tab[hidden] { display: none; }
+.panel-head { flex-wrap: wrap; }
+.panel-head h2 { margin: 0; font-size: calc(15px * var(--fs)); color: var(--accent); }
+.panel-head .hint { flex: 1; }
+.panel-head select { max-width: 240px; }
+.warn-panel { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.panel-head + .item, .add-row + .item { border-top: none; }
+.item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.item-main.row { flex-direction: row; align-items: center; gap: 10px; }
+.item-main.row input { flex: 1; max-width: 360px; }
+.item-title { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.item-sub { color: var(--muted); font-size: calc(13px * var(--fs)); }
+.item-note { font-size: calc(13px * var(--fs)); }
+.item-warn { font-size: calc(13px * var(--fs)); color: var(--warn); }
+.item-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.item-actions select { max-width: 220px; }
+.add-row { display: flex; gap: 8px; margin: 4px 0 8px; }
+.add-row input { flex: 1; max-width: 360px; }
+.icon-btn:disabled { opacity: .3; cursor: default; }
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: calc(13px * var(--fs)); }
+.table th, .table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.table th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.table tbody tr:last-child td { border-bottom: none; }
+.table tr.off td { color: var(--faint); }
+.table .check { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+dialog.wide { width: min(640px, calc(100vw - 32px)); }
+.field-col { display: flex; flex-direction: column; gap: 6px; font-size: calc(13px * var(--fs)); color: var(--muted); }
+.field-col > .btn { align-self: flex-start; }
+.pick { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--text); max-height: 160px; overflow: auto; }
+.pick .check { font-size: calc(14px * var(--fs)); }
+#eqStatus { align-self: flex-start; }
+.link-row { margin-bottom: 6px; }
+.link-row input[name=lt] { flex: .6; }
+fieldset[disabled] { opacity: .65; }
+
+@media (max-width: 760px) {
+  .item { flex-direction: column; align-items: stretch; }
+  .item-actions { justify-content: flex-start; }
+  /* 사용자 표 → 카드 */
+  .users-table thead { display: none; }
+  .users-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .users-table td { border: none; padding: 2px 0; }
+  .users-table td[data-k=이름], .users-table td[data-k=이메일] { grid-column: 1 / -1; }
+  .users-table td select { width: 100%; }
 }
