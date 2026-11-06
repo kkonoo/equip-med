@@ -1,5 +1,6 @@
 # Draws the app icons (icons/app-*.png): calendar with a crimson header, two rings and six slots
-# (one booked = crimson, one pending = light crimson). Maskable = light crimson background.
+# (one booked = crimson, one pending = light crimson).
+# Colours = HaLab slide-gallery crimson theme steps. Maskable = light crimson background.
 # Run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/make-icons.ps1
 Add-Type -AssemblyName System.Drawing
 $out = Join-Path $PSScriptRoot '..\icons'
@@ -25,18 +26,18 @@ function DrawIcon {
   $g.Clear([Drawing.Color]::Transparent)
 
   # shadow, calendar card, crimson header (clipped to the card), rings
-  $g.FillPath((Brush '#E7D6DA'), (RoundRect 76 100 360 340 48))
+  $g.FillPath((Brush '#F1D8DC'), (RoundRect 76 100 360 340 48))
   $card = RoundRect 76 84 360 340 48
   $g.FillPath((Brush '#FFFFFF'), $card)
-  $g.DrawPath((Pen '#EBD3D9' 6), $card)
+  $g.DrawPath((Pen '#F1D8DC' 6), $card)
   $g.SetClip($card)
-  $g.FillRectangle((Brush '#B4213F'), 76, 84, 360, 100)
+  $g.FillRectangle((Brush '#B0283C'), 76, 84, 360, 100)
   $g.ResetClip()
-  $g.FillPath((Brush '#6E1227'), (RoundRect 162 54 34 70 17))
-  $g.FillPath((Brush '#6E1227'), (RoundRect 316 54 34 70 17))
+  $g.FillPath((Brush '#7A1F3D'), (RoundRect 162 54 34 70 17))
+  $g.FillPath((Brush '#7A1F3D'), (RoundRect 316 54 34 70 17))
 
   # slots: 3 x 2, second = booked, fifth = pending
-  $colors = '#F2E6E9', '#B4213F', '#F2E6E9', '#F2E6E9', '#ECB4C0', '#F2E6E9'
+  $colors = '#F7EAEC', '#B0283C', '#F7EAEC', '#F7EAEC', '#DFA9B1', '#F7EAEC'
   for ($i = 0; $i -lt 6; $i++) {
     $x = 120 + ($i % 3) * 98
     $y = 214 + [Math]::Floor($i / 3) * 98
@@ -65,7 +66,7 @@ Save $icon 192 'app-192.png'
 $mask = New-Object Drawing.Bitmap 512, 512
 $g = [Drawing.Graphics]::FromImage($mask)
 $g.InterpolationMode = 'HighQualityBicubic'
-$g.Clear([Drawing.ColorTranslator]::FromHtml('#FBE9ED'))
+$g.Clear([Drawing.ColorTranslator]::FromHtml('#F7EAEC'))
 $g.DrawImage($icon, 64, 64, 384, 384)
 $g.Dispose()
 Save $mask 512 'app-maskable-512.png'

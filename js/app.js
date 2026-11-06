@@ -160,11 +160,7 @@ const GATES = {
     <form id="signupForm" class="form">
       <label>이름<input name="name" required maxlength="40" autocomplete="name"></label>
       <label>연구실
-        <select name="lab" required>
-          <option value="" disabled selected>고르세요</option>
-          ${S.labs.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('')}
-          <option value="__other">목록에 없어요 (직접 입력)</option>
-        </select>
+        <select name="lab" required>${labOptions()}</select>
       </label>
       <label id="labOtherRow" hidden>연구실 이름<input name="labOther" maxlength="60" placeholder="예: 분자생물학 연구실"></label>
       <p class="hint">${esc(S.user?.email || '')} 계정으로 신청해요.</p>
@@ -188,12 +184,20 @@ const GATES = {
     <p>기기 담당자와 총관리자만 볼 수 있어요.</p>
     <a class="btn" href="./">예약 화면으로</a>`,
 };
+const labOptions = () => `<option value="" disabled selected>고르세요</option>
+  ${S.labs.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('')}
+  <option value="__other">목록에 없어요 (직접 입력)</option>`;
 function gate(name) {
   $('app').hidden = true;
   $('gate').hidden = false;
   document.body.classList.remove('in-app');
-  // 가입 폼은 입력 중에 연구실 목록이 바뀌어도 다시 그리지 않음
-  if (shown === name && name === 'signup') return;
+  // 가입 폼을 쓰는 중에 연구실 목록이 바뀌면 고르는 칸만 새로 (적은 내용은 그대로)
+  if (shown === name && name === 'signup') {
+    const sel = $('signupForm').lab, v = sel.value;
+    sel.innerHTML = labOptions();
+    if ([...sel.options].some(o => o.value === v)) sel.value = v;
+    return;
+  }
   shown = name;
   $('gate').innerHTML = `<div class="panel gate-card">${GATES[name]()}</div>`;
   $('gateLogin')?.addEventListener('click', () => window.cloud?.login());

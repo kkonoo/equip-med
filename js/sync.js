@@ -77,5 +77,19 @@ async function start() {
       name, email: S.user.email, labId: labId || null, labName: labName || '', role: 'pending', active: true, createdAt: now(),
     }),
     updateMyName: name => F.updateDoc(ref('users', S.user.uid), { name }),
+
+    // ---------- 예약 ----------
+    // 한 기기의 예약 중 after 이후에 끝나는 것 (그리드·겹침 확인) — 인덱스 bookings(equipId, end)
+    watchBookings: (equipId, after, cb) => watch(F.query(col('bookings'), F.where('equipId', '==', equipId), F.where('end', '>', ts(after))), cb, '예약'),
+    findOverlaps: async (equipId, start, end) => {
+      const snap = await F.getDocs(F.query(col('bookings'), F.where('equipId', '==', equipId), F.where('end', '>', ts(start))));
+      return snap.docs.map(plain).filter(b => b.start < end);
+    },
+    // 예약에 이름·연구실을 복사해 둠 (그리드를 그릴 때 users를 다시 읽지 않게)
+    createBooking: ({ equipId, start, end, purpose, status }) => F.addDoc(col('bookings'), {
+      equipId, uid: S.user.uid, userName: S.me.name, labId: S.me.labId || null,
+      start: ts(start), end: ts(end), purpose, status, createdAt: now(), updatedAt: now(),
+    }),
+    cancelMine: id => F.updateDoc(ref('bookings', id), { status: 'cancelled', updatedAt: now() }),
   };
 }

@@ -1,5 +1,6 @@
 /* 공동기기@KNUmed (equip-hub) — 토큰(맨 위), 공통 컴포넌트, 화면별 스타일 순서.
-   토큰·컴포넌트는 kkonoo 앱 공통(my-webapp-stack base.css), accent만 크림슨. */
+   토큰·컴포넌트는 kkonoo 앱 공통(my-webapp-stack base.css).
+   accent는 HaLab 슬라이드 갤러리 크림슨 테마 값: 주조색 #B0283C · 옅은 면 #F7EAEC · 강조색 #2E9CCA · 그림자 #C86268 */
 
 :root {
   --bg: #F5F4F0;
@@ -9,15 +10,17 @@
   --text: #1E1F22;
   --muted: #8A8882;
   --faint: #B8B5AD;
-  --accent: #B4213F;        /* 크림슨 — 앱마다 하나 (플래너·랩 매니저 파랑, 살림노트 세이지) */
-  --accent-soft: #FBE9ED;
+  --accent: #B0283C;        /* 크림슨 — 앱마다 하나 (플래너·랩 매니저 파랑, 살림노트 세이지) */
+  --accent-soft: #F7EAEC;
+  --accent-mid: #DFA9B1;    /* 주조색 60% 단계 */
+  --hi: #2E9CCA;            /* 강조색: 한 화면에 한 곳 (지금 시각 선) */
   --on-accent: #FFFFFF;
   --bad: #E5484D;           /* 삭제·초과·오류 */
   --warn: #D9930D;          /* 확인 필요 */
   --good: #2BA36B;          /* 완료·정상 */
   --sun: #E5484D;           /* 달력: 일요일·공휴일 */
   --sat: #3B78F0;           /* 달력: 토요일 */
-  --shadow: 0 1px 2px rgba(20, 20, 20, .04), 0 6px 20px rgba(20, 20, 20, .04);
+  --shadow: 0 1px 2px rgba(200, 98, 104, .07), 0 6px 20px rgba(200, 98, 104, .08); /* 주조색을 띤 옅은 그림자 */
   --radius: 14px;
   --tint: 16%;              /* color-mix 양: 칩 배경 */
   --fs: 1;                  /* 글씨 크기 배율 — 설정에서 app.js가 덮어씀 */
@@ -27,7 +30,7 @@
   :root:not([data-theme="light"]) {
     --bg: #121214; --surface: #1B1B1E; --surface-2: #222226; --line: #2C2C31;
     --text: #ECECEE; --muted: #8E8E95; --faint: #5C5C63;
-    --accent: #F27A93; --accent-soft: #3C1F27; --on-accent: #23090F;
+    --accent: #E07A8B; --accent-soft: #3A1F25; --accent-mid: #7A3542; --on-accent: #1E0A0E; --hi: #5BB8E0;
     --bad: #FF6B6F; --warn: #F2B544; --good: #4CC98A; --sun: #FF6B6F; --sat: #6FA0FF;
     --shadow: none; --tint: 30%; color-scheme: only dark;
   }
@@ -35,7 +38,7 @@
 :root[data-theme="dark"] {
   --bg: #121214; --surface: #1B1B1E; --surface-2: #222226; --line: #2C2C31;
   --text: #ECECEE; --muted: #8E8E95; --faint: #5C5C63;
-  --accent: #F27A93; --accent-soft: #3C1F27; --on-accent: #23090F;
+  --accent: #E07A8B; --accent-soft: #3A1F25; --accent-mid: #7A3542; --on-accent: #1E0A0E; --hi: #5BB8E0;
   --bad: #FF6B6F; --warn: #F2B544; --good: #4CC98A; --sun: #FF6B6F; --sat: #6FA0FF;
   --shadow: none; --tint: 30%; color-scheme: only dark;
 }
@@ -137,7 +140,7 @@ dialog h2 + .hint { margin-top: 0; line-height: 1.5; }
 
 /* ---------- 공통: 폼·목록 ---------- */
 a { color: var(--accent); }
-a.btn { color: var(--text); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+a.btn { color: var(--text); text-decoration: none; display: inline-block; }
 code { font-size: .92em; padding: 1px 5px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); }
 input, select, textarea {
   border: 1px solid var(--line); border-radius: 9px; background: var(--surface);
@@ -179,6 +182,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .app-title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: calc(18px * var(--fs)); font-weight: 700; }
 .app-title a { display: inline-flex; align-items: center; gap: 8px; color: inherit; text-decoration: none; }
 .app-title img { width: 28px; height: 28px; border-radius: 7px; }
+.app-title { color: var(--accent); }
 .app-title .at { font-weight: 500; color: var(--muted); }
 .app-title .sub { margin-left: 4px; font-size: calc(13px * var(--fs)); font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 6px; }
 .tools { display: flex; align-items: center; gap: 8px; }
@@ -214,7 +218,7 @@ main { flex: 1; display: flex; flex-direction: column; padding: 0 24px 32px; min
 .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
 .warn-text { color: var(--warn); }
 .notice { margin: 0; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, var(--warn) var(--tint), transparent); }
-dialog h3 { margin: 6px 0 6px; font-size: calc(14px * var(--fs)); }
+dialog h3 { margin: 6px 0 6px; font-size: calc(14px * var(--fs)); color: var(--accent); } /* 칸 제목은 주조색 (슬라이드 갤러리) */
 dialog section { display: flex; flex-direction: column; }
 .dlg-title { display: flex; align-items: center; gap: 8px; }
 .manual { white-space: pre-wrap; line-height: 1.6; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); max-height: 45vh; overflow: auto; }
@@ -222,3 +226,65 @@ dialog section { display: flex; flex-direction: column; }
 .links { list-style: none; padding-left: 0; }
 .links a { text-decoration: none; }
 .links a:hover { text-decoration: underline; }
+
+/* ---------- 예약 탭: 주간 그리드 ---------- */
+.bk-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.bk-bar select { max-width: 320px; font-weight: 600; }
+.bk-bar .spacer { flex: 1; }
+.bk-nav { display: flex; align-items: center; gap: 4px; }
+.bk-label { margin-left: 6px; font-size: calc(14px * var(--fs)); white-space: nowrap; }
+.bk-rules { margin: 0 0 8px; }
+#tab-book .notice { margin-bottom: 8px; }
+.bk-grid { padding: 0; }
+.bk-head, .bk-body { display: grid; grid-template-columns: 52px repeat(var(--days), minmax(0, 1fr)); }
+.bk-head { border-bottom: 1px solid var(--line); }
+.day-h { padding: 8px 4px; text-align: center; font-size: calc(13px * var(--fs)); color: var(--muted); }
+.day-h b { color: var(--text); font-weight: 600; }
+.day-h.sun, .day-h.sun b { color: var(--sun); }
+.day-h.sat, .day-h.sat b { color: var(--sat); }
+.day-h.today b { background: var(--accent); color: var(--on-accent); padding: 1px 7px; border-radius: 999px; }
+.bk-scroll { overflow-y: auto; max-height: max(380px, calc(100dvh - 260px)); overscroll-behavior: contain; }
+.bk-times div { height: var(--hour); font-size: calc(11px * var(--fs)); color: var(--muted); text-align: right; padding-right: 6px; transform: translateY(-7px); }
+.bk-col {
+  position: relative; height: calc(var(--hour) * 24); border-left: 1px solid var(--line); cursor: pointer;
+  background-image:
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--line) 45%, transparent) 1px, transparent 1px);
+  background-size: 100% var(--hour), 100% var(--slotpx);
+}
+.bk-col:hover { background-color: color-mix(in srgb, var(--accent) 3%, transparent); }
+.blk { position: absolute; left: 0; right: 0; pointer-events: none; }
+.blk.closed { background: color-mix(in srgb, var(--muted) 13%, transparent); }
+.blk.past { background: color-mix(in srgb, var(--bg) 55%, transparent); }
+.blk.down { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--muted) 22%, transparent) 0 6px, transparent 6px 12px); }
+.blk.down span { position: sticky; top: 0; display: inline-block; margin: 4px; padding: 0 6px; border-radius: 6px; font-size: calc(11px * var(--fs)); background: var(--surface); color: var(--muted); }
+.bk {
+  position: absolute; z-index: 1; overflow: hidden;
+  left: calc(var(--lane) * 100% / var(--lanes) + 2px); width: calc(100% / var(--lanes) - 4px);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  padding: 3px 6px; border: none; border-radius: 6px; text-align: left; cursor: pointer;
+  font-size: calc(12px * var(--fs)); line-height: 1.25; color: var(--text);
+}
+.bk b, .bk span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk span { color: inherit; opacity: .8; }
+.bk.approved { background: color-mix(in srgb, var(--muted) 24%, var(--surface)); border-left: 3px solid var(--muted); }
+.bk.pending { background: color-mix(in srgb, var(--muted) 9%, var(--surface)); outline: 1px dashed var(--muted); outline-offset: -1px; color: var(--muted); }
+.bk.mine.approved { background: var(--accent); border-left-color: var(--accent); color: var(--on-accent); }
+.bk.mine.pending { background: var(--accent-soft); outline-color: var(--accent); color: var(--accent); }
+.now-line { position: absolute; left: 0; right: 0; z-index: 2; height: 2px; background: var(--hi); pointer-events: none; }
+.now-line::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--hi); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: calc(12px * var(--fs)); color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.sw { width: 14px; height: 12px; border-radius: 3px; display: inline-block; }
+.sw.approved { background: color-mix(in srgb, var(--muted) 24%, var(--surface)); border-left: 3px solid var(--muted); }
+.sw.pending { background: color-mix(in srgb, var(--muted) 9%, var(--surface)); outline: 1px dashed var(--muted); outline-offset: -1px; }
+.sw.mine { background: var(--accent); }
+.sw.down { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--muted) 35%, transparent) 0 3px, transparent 3px 6px); border: 1px solid var(--line); }
+.sw.closed { background: color-mix(in srgb, var(--muted) 18%, transparent); }
+
+@media (max-width: 900px) {
+  .bk-bar select { flex: 1 1 100%; max-width: none; }
+  .bk-bar .spacer { display: none; }
+  .bk-nav { margin-left: auto; }
+  .bk-scroll { max-height: max(360px, calc(100dvh - 300px)); }
+}
