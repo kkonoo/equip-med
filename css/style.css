@@ -326,6 +326,13 @@ dialog section { display: flex; flex-direction: column; }
 .table tbody tr:last-child td { border-bottom: none; }
 .table tr.off td { color: var(--faint); }
 .table .check { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.table.stats th, .table.stats td { text-align: right; white-space: nowrap; }
+.table.stats th:first-child { text-align: left; }
+.table.stats td b { display: block; font-size: calc(15px * var(--fs)); }
+.table.stats td small { color: var(--muted); font-size: calc(11px * var(--fs)); }
+.table.stats .sum, .table.stats tfoot th { background: var(--surface-2); }
+.table.stats tfoot td, .table.stats tfoot th { border-top: 1px solid var(--line); border-bottom: none; }
+#stMonth { width: auto; }
 dialog.wide { width: min(640px, calc(100vw - 32px)); }
 .field-col { display: flex; flex-direction: column; gap: 6px; font-size: calc(13px * var(--fs)); color: var(--muted); }
 .field-col > .btn { align-self: flex-start; }

@@ -110,6 +110,28 @@ async function start() {
     watchEquipLogs: (equipId, cb) => watch(F.query(col('logs'), F.where('equipId', '==', equipId)), cb, '사용일지'),
     watchEquipBookings: (equipId, cb) => watch(F.query(col('bookings'), F.where('equipId', '==', equipId)), cb, '예약'),
 
+    // ---------- 통계·백업 ----------
+    // 기기마다: 그 달에 시작한 예약(인덱스 bookings(equipId, start)) + 그 기기의 사용일지
+    getUsage: async (equipIds, from, to) => {
+      const res = await Promise.all(equipIds.map(id => Promise.all([
+        F.getDocs(F.query(col('bookings'), F.where('equipId', '==', id), F.where('start', '>=', ts(from)), F.where('start', '<', ts(to)))),
+        F.getDocs(F.query(col('logs'), F.where('equipId', '==', id))),
+      ])));
+      return { bookings: res.flatMap(([b]) => b.docs.map(plain)), logs: res.flatMap(([, l]) => l.docs.map(plain)) };
+    },
+    // 전체 백업: 다섯 컬렉션을 그대로 (시간은 ISO 문자열로)
+    backup: async () => {
+      const out = { app: 'equip-hub', exportedAt: new Date().toISOString() };
+      for (const name of ['users', 'labs', 'equipment', 'bookings', 'logs']) {
+        out[name] = (await F.getDocs(col(name))).docs.map(d => {
+          const o = { id: d.id, ...d.data() };
+          for (const k of Object.keys(o)) if (o[k] instanceof F.Timestamp) o[k] = o[k].toDate().toISOString();
+          return o;
+        });
+      }
+      return out;
+    },
+
     // ---------- 관리자 페이지 ----------
     // 다가오는 예약 (승인 대기 목록·겹침 경고·점검 기간 경고). equipIds가 null이면 전체(총관리자)
     // 'in'은 30개까지 — 담당 기기가 그보다 많을 일은 없다고 봄

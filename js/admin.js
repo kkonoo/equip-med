@@ -5,7 +5,9 @@ const ADMIN_TABS = [
   { id: 'users', label: '가입 승인', who: 'admin', render: renderUsers, badge: () => pendingUsers().length },
   { id: 'equip', label: '기기', who: 'manager', render: renderEquipAdmin },
   { id: 'logs', label: '사용일지', who: 'manager', render: renderLogs },
+  { id: 'stats', label: '통계', who: 'manager', render: renderStats },
   { id: 'labs', label: '연구실', who: 'admin', render: renderLabs },
+  { id: 'data', label: '데이터', who: 'admin', render: renderData },
 ];
 const adminTabs = () => ADMIN_TABS.filter(t => t.who === 'manager' || isAdmin());
 // 연구실 이름으로 id 찾기 — 같은 이름(대소문자·앞뒤 공백 무시)이 이미 있으면 그걸 쓰고, 없으면 새로 추가
@@ -462,4 +464,71 @@ function renderLabs(box) {
       } catch (x) { fail('연결하지 못했어요', x); }
     };
   });
+}
+
+// ---------- 통계: 월을 고르면 연구실 × 기기 사용 시간 표 (담당자는 담당 기기만) ----------
+const ST = { key: '', data: null, loading: false, error: '' };
+resets.push(() => Object.assign(ST, { key: '', data: null, loading: false, error: '' }));
+function renderStats(box) {
+  const scope = scopeEquip();
+  const month = prefs.statMonth || ymd(Date.now()).slice(0, 7);
+  const from = fromInput(`${month}-01`), to = monthStart(from + 32 * DAY);
+  const key = `${month}|${scope.map(e => e.id).join(',')}`;
+  if (ST.key !== key) { // 월이나 기기가 바뀌면 다시 받음
+    Object.assign(ST, { key, data: null, loading: true, error: '' });
+    window.cloud.getUsage(scope.map(e => e.id), from, to)
+      .then(d => { if (ST.key === key) Object.assign(ST, { data: d, loading: false }); })
+      .catch(e => { console.error(e); if (ST.key === key) Object.assign(ST, { loading: false, error: e.code || e.message }); })
+      .finally(() => { if (prefs.adminTab === 'stats') render(); });
+  }
+  const shift = n => { const [y, m] = month.split('-').map(Number), d = new Date(Date.UTC(y, m - 1 + n, 1)); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`; };
+  let table = '<p class="hint">불러오는 중이에요…</p>';
+  if (ST.error) table = `<p class="err">통계를 불러오지 못했어요 (${esc(ST.error)})</p>`;
+  else if (ST.data) {
+    const cells = usageTable(ST.data.bookings, ST.data.logs);
+    const labIds = [...S.labs.map(l => l.id), ''].filter(id => scope.some(e => cells.has(`${id}|${e.id}`)));
+    const cell = c => (c && (c.log || c.book) ? `<b>${hours(c.log + c.book)}</b><small>일지 ${hours(c.log)} · 예약 ${hours(c.book)}</small>` : '<span class="hint">-</span>');
+    table = labIds.length ? `<div class="table-wrap"><table class="table stats">
+      <thead><tr><th>연구실</th>${scope.map(e => `<th>${esc(e.name)}</th>`).join('')}<th>합계</th></tr></thead>
+      <tbody>${labIds.map(id => `<tr><th>${esc(labName(id) || '연구실 없음')}</th>${scope.map(e => `<td>${cell(cells.get(`${id}|${e.id}`))}</td>`).join('')}<td class="sum">${cell(sumCells(scope.map(e => cells.get(`${id}|${e.id}`))))}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><th>합계</th>${scope.map(e => `<td class="sum">${cell(sumCells(labIds.map(id => cells.get(`${id}|${e.id}`))))}</td>`).join('')}<td class="sum">${cell(sumCells([...cells.values()]))}</td></tr></tfoot>
+    </table></div>` : '<p class="empty">이 달에 끝난 승인된 예약이 없어요.</p>';
+  }
+  box.innerHTML = `
+    <section class="panel">
+      <div class="panel-head"><h2>통계</h2>
+        <div class="bk-nav"><button class="icon-btn" id="stPrev" title="이전 달">‹</button><input type="month" id="stMonth" value="${month}"><button class="icon-btn" id="stNext" title="다음 달">›</button><button class="icon-btn small" id="stReload" title="새로 고침">↻</button></div>
+        <span class="hint">단위 시간 · 사용일지가 있으면 실제 시간(일지), 없으면 승인된 예약 시간(예약) · 끝난 예약만, 시작한 달 기준</span>
+      </div>
+      ${table}
+    </section>`;
+  const go = m => { prefs.statMonth = m; savePrefs(); render(); };
+  $('stPrev').onclick = () => go(shift(-1));
+  $('stNext').onclick = () => go(shift(1));
+  $('stMonth').onchange = ev => { if (ev.target.value) { ev.target.blur(); go(ev.target.value); } };
+  $('stReload').onclick = () => { ST.key = ''; render(); };
+}
+
+// ---------- 데이터: 전체 백업 파일 저장 (총관리자) ----------
+function renderData(box) {
+  box.innerHTML = `
+    <section class="panel">
+      <div class="panel-head"><h2>백업</h2></div>
+      <p>사용자·연구실·기기·예약·사용일지를 JSON 파일 하나로 받아요. 가끔 받아서 안전한 곳에 두세요.</p>
+      <p class="hint">파일에는 이름·이메일 같은 개인정보가 들어 있어요. 저장소(GitHub)에는 올리지 마세요.</p>
+      <div class="actions" style="justify-content:flex-start"><button class="btn primary" id="backupBtn">백업 파일 저장</button><span class="hint" id="backupInfo"></span></div>
+    </section>`;
+  $('backupBtn').onclick = async () => {
+    $('backupBtn').disabled = true;
+    try {
+      const data = await window.cloud.backup();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `equip-hub-backup-${ymd(Date.now())}.json` });
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      $('backupInfo').textContent = ['users', 'labs', 'equipment', 'bookings', 'logs'].map(k => `${k} ${data[k].length}`).join(' · ');
+      toast('백업 파일을 저장했어요');
+    } catch (e) { fail('백업하지 못했어요', e); }
+    finally { $('backupBtn').disabled = false; }
+  };
 }
