@@ -37,14 +37,14 @@ async function start() {
   // 받은 목록을 cb(목록)으로 넘기는 실시간 구독. 돌려준 함수를 부르면 끊김 (로그아웃하면 전부 끊김)
   const live = new Set();
   function watch(q, cb, what) {
-    const off = F.onSnapshot(q, snap => cb(snap.docs.map(plain)), e => fail(`${what}을(를) 불러오지 못했어요`, e));
+    const off = F.onSnapshot(q, snap => cb(snap.docs.map(plain)), e => fail(t('{what}을(를) 불러오지 못했어요', { what: t(what) }), e));
     live.add(off);
     return () => { live.delete(off); off(); };
   }
 
   // ---------- 로그인 ----------
   const login = () => A.signInWithPopup(auth, new A.GoogleAuthProvider()).catch(e => {
-    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') fail('로그인하지 못했어요', e);
+    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') fail(t('로그인하지 못했어요'), e);
   });
   const logout = () => A.signOut(auth);
 
@@ -71,7 +71,7 @@ async function start() {
         unsubEquip(); unsubEquip = null; S.equipment = []; S.equipLoaded = false;
       }
       onAuth();
-    }, e => fail('계정 정보를 불러오지 못했어요', e)));
+    }, e => fail(t('계정 정보를 불러오지 못했어요'), e)));
     // 연구실 목록: 가입 폼에도 필요해서 로그인만 하면 받음
     unsubs.push(watch(col('labs'), list => { S.labs = list.sort(byOrder); onData(); }, '연구실 목록'));
   });
@@ -87,7 +87,7 @@ async function start() {
 
     // ---------- 예약 ----------
     // 한 기기의 예약 중 after 이후에 끝나는 것 (그리드·겹침 확인) — 인덱스 bookings(equipId, end)
-    watchBookings: (equipId, after, cb) => watch(F.query(col('bookings'), F.where('equipId', '==', equipId), F.where('end', '>', ts(after))), cb, '예약'),
+    watchBookings: (equipId, after, cb) => watch(F.query(col('bookings'), F.where('equipId', '==', equipId), F.where('end', '>', ts(after))), cb, '예약 목록'),
     findOverlaps: async (equipId, start, end) => {
       const snap = await F.getDocs(F.query(col('bookings'), F.where('equipId', '==', equipId), F.where('end', '>', ts(start))));
       return snap.docs.map(plain).filter(b => b.start < end);
@@ -98,17 +98,17 @@ async function start() {
       start: ts(start), end: ts(end), purpose, status, createdAt: now(), updatedAt: now(),
     }),
     cancelMine: id => F.updateDoc(ref('bookings', id), { status: 'cancelled', updatedAt: now() }),
-    watchMine: cb => watch(F.query(col('bookings'), F.where('uid', '==', S.user.uid)), cb, '내 예약'),
+    watchMine: cb => watch(F.query(col('bookings'), F.where('uid', '==', S.user.uid)), cb, '내 예약 목록'),
 
     // ---------- 사용일지: logs/{예약 id} (예약 하나에 하나) ----------
-    watchMyLogs: cb => watch(F.query(col('logs'), F.where('uid', '==', S.user.uid)), cb, '사용일지'),
+    watchMyLogs: cb => watch(F.query(col('logs'), F.where('uid', '==', S.user.uid)), cb, '사용일지 목록'),
     saveLog: (b, { actualStart, actualEnd, note, problem }, isNew) => F.setDoc(ref('logs', b.id), {
       equipId: b.equipId, uid: S.user.uid, labId: b.labId || null,
       actualStart: ts(actualStart), actualEnd: ts(actualEnd), note, problem,
       updatedAt: now(), ...(isNew ? { createdAt: now() } : {}),
     }, { merge: true }),
-    watchEquipLogs: (equipId, cb) => watch(F.query(col('logs'), F.where('equipId', '==', equipId)), cb, '사용일지'),
-    watchEquipBookings: (equipId, cb) => watch(F.query(col('bookings'), F.where('equipId', '==', equipId)), cb, '예약'),
+    watchEquipLogs: (equipId, cb) => watch(F.query(col('logs'), F.where('equipId', '==', equipId)), cb, '사용일지 목록'),
+    watchEquipBookings: (equipId, cb) => watch(F.query(col('bookings'), F.where('equipId', '==', equipId)), cb, '예약 목록'),
 
     // ---------- 통계·백업 ----------
     // 기기마다: 그 달에 시작한 예약(인덱스 bookings(equipId, start)) + 그 기기의 사용일지
@@ -137,7 +137,7 @@ async function start() {
     // 'in'은 30개까지 — 담당 기기가 그보다 많을 일은 없다고 봄
     watchUpcoming: (equipIds, after, cb) => watch(equipIds
       ? F.query(col('bookings'), F.where('equipId', 'in', equipIds.length ? equipIds : ['-']), F.where('end', '>', ts(after)))
-      : F.query(col('bookings'), F.where('end', '>', ts(after))), cb, '예약'),
+      : F.query(col('bookings'), F.where('end', '>', ts(after))), cb, '예약 목록'),
     // 담당자·총관리자: 승인·거절·취소 (사유와 처리한 사람 기록)
     decide: (id, status, reason = '') => F.updateDoc(ref('bookings', id), {
       status, reason, decidedBy: S.user.uid, decidedAt: now(), updatedAt: now(),

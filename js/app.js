@@ -21,7 +21,7 @@ const S = {
 
 // ---------- 시간 (Asia/Seoul = UTC+9, 서머타임 없음) ----------
 const MIN = 60000, HOUR = 60 * MIN, DAY = 24 * HOUR, KST = 9 * HOUR;
-const DOW = '일월화수목금토';
+const DOW = LANG === 'en' ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : [...'일월화수목금토'];
 const pad = n => String(n).padStart(2, '0');
 function kp(ms) { // 서울 시각으로 나눈 값
   const d = new Date(ms + KST);
@@ -42,7 +42,6 @@ function fmtRange(s, e) {
   if (e === dayStart(s) + DAY) return `${fmtDay(s)} ${hm(s)}–24:00`;
   return dayStart(s) === dayStart(e) ? `${fmtDay(s)} ${hm(s)}–${hm(e)}` : `${fmtDay(s)} ${hm(s)} – ${fmtDay(e)} ${hm(e)}`;
 }
-const fmtHours = ms => { const h = Math.round(ms / HOUR * 10) / 10; return `${h}시간`; };
 
 // ---------- 공통 도우미 ----------
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -52,8 +51,8 @@ const isAdmin = () => S.me?.role === 'admin' && S.me?.active !== false;
 const manages = e => isAdmin() || (e.managers || []).includes(S.user?.uid);
 const myEquip = () => S.equipment.filter(e => (e.managers || []).includes(S.user?.uid)); // 내가 담당자로 지정된 기기
 const canAdmin = () => isAdmin() || myEquip().length > 0;
-const STATUS = { ok: '정상', maintenance: '점검', broken: '고장' };
-const BOOK_STATUS = { pending: '승인 대기', approved: '승인', rejected: '거절', cancelled: '취소' };
+const STATUS = { ok: t('정상'), maintenance: t('점검'), broken: t('고장') };
+const BOOK_STATUS = { pending: t('승인 대기'), approved: t('승인'), rejected: t('거절'), cancelled: t('취소') };
 
 // 기기의 지금 상태: 점검·고장이면 막힌 기간 [지금, statusUntil) (끝이 없으면 계속)
 function downUntil(e) { return e.status && e.status !== 'ok' ? (e.statusUntil ?? Infinity) : null; }
@@ -62,18 +61,18 @@ const rulesOf = e => ({ slotMinutes: 30, maxHours: null, maxDaysAhead: null, ope
 function ruleList(e) {
   const r = rulesOf(e);
   return [
-    `예약 단위 ${r.slotMinutes}분`,
-    r.maxHours ? `1회 최대 ${r.maxHours}시간` : '1회 시간 제한 없음',
-    r.maxDaysAhead != null ? `오늘부터 ${r.maxDaysAhead}일 뒤까지 예약` : '며칠 앞이든 예약',
-    r.openFrom && r.openTo ? `예약 가능 ${r.openFrom}–${r.openTo}` : '하루 종일 예약 가능',
-    e.requiresApproval === false ? '예약하면 바로 확정' : '담당자 승인 뒤 확정',
+    t('예약 단위 {n}분', { n: r.slotMinutes }),
+    r.maxHours ? t('1회 최대 {n}시간', { n: r.maxHours }) : t('1회 시간 제한 없음'),
+    r.maxDaysAhead != null ? t('오늘부터 {n}일 뒤까지 예약', { n: r.maxDaysAhead }) : t('며칠 앞이든 예약'),
+    r.openFrom && r.openTo ? t('예약 가능 {from}–{to}', { from: r.openFrom, to: r.openTo }) : t('하루 종일 예약 가능'),
+    e.requiresApproval === false ? t('예약하면 바로 확정') : t('담당자 승인 뒤 확정'),
   ];
 }
-const managerNames = e => (e.managers || []).map(uid => e.managerNames?.[uid] || '이름 없음');
+const managerNames = e => (e.managers || []).map(uid => e.managerNames?.[uid] || t('이름 없음'));
 function statusChip(e) { const s = e.status || 'ok'; return `<span class="chip ${s}">${STATUS[s]}</span>`; }
 function statusLine(e) { // 점검·고장일 때 사유와 기간
   if (!e.status || e.status === 'ok') return '';
-  const until = e.statusUntil ? ` · ${fmtDay(e.statusUntil)} ${hm(e.statusUntil)}까지` : '';
+  const until = e.statusUntil ? ` · ${t('{when}까지', { when: `${fmtDay(e.statusUntil)} ${hm(e.statusUntil)}` })}` : '';
   return `${STATUS[e.status]}${e.statusNote ? ` · ${e.statusNote}` : ''}${until}`;
 }
 const safeUrl = u => (/^https?:\/\//i.test(u || '') ? u : null);
@@ -91,7 +90,7 @@ function toast(text, ms = 2200) {
 // 저장 실패 등: 무엇이 안 됐는지 + 원인 코드
 function fail(what, e) {
   console.error(what, e);
-  toast(e?.code === 'permission-denied' ? `${what}: 권한이 없어요` : `${what}: ${e?.message || e}`, 3500);
+  toast(e?.code === 'permission-denied' ? t('{what}: 권한이 없어요', { what }) : `${what}: ${e?.message || e}`, 3500);
 }
 
 // ---------- 테마·글씨 크기 ----------
@@ -157,57 +156,68 @@ function render() {
 }
 
 const GATES = {
-  loading: () => '<p class="hint">불러오는 중이에요…</p>',
+  loading: () => `<p class="hint">${t('불러오는 중이에요…')}</p>`,
   setup: () => `
-    <h2>설정이 필요해요</h2>
-    <p>아직 Firebase 프로젝트가 연결되지 않았어요.</p>
+    <h2>${t('설정이 필요해요')}</h2>
+    <p>${t('아직 Firebase 프로젝트가 연결되지 않았어요.')}</p>
     <ol class="steps">
-      <li>Firebase 콘솔에서 프로젝트를 만들고 Authentication(Google)과 Firestore를 켜요.</li>
-      <li>프로젝트 설정 &gt; 내 앱(웹)의 <code>firebaseConfig</code> 값을 <code>js/firebase-config.js</code>에 넣어요.</li>
-      <li><code>firestore.rules</code>를 Firestore 규칙에 붙여 넣어요.</li>
+      <li>${t('Firebase 콘솔에서 프로젝트를 만들고 Authentication(Google)과 Firestore를 켜요.')}</li>
+      <li>${esc(t('프로젝트 설정 > 내 앱(웹)의 firebaseConfig 값을 js/firebase-config.js에 넣어요.'))}</li>
+      <li>${t('firestore.rules를 Firestore 규칙에 붙여 넣어요.')}</li>
     </ol>
-    <p class="hint">자세한 순서는 README의 '처음 쓸 때'에 있어요.</p>`,
+    <p class="hint">${t("자세한 순서는 README의 '처음 쓸 때'에 있어요.")}</p>`,
   error: () => `
-    <h2>연결하지 못했어요</h2>
-    <p>Firebase를 불러오지 못했어요. 인터넷 연결을 확인하고 새로 고침해 주세요.</p>
-    <button class="btn" onclick="location.reload()">새로 고침</button>`,
+    <h2>${t('연결하지 못했어요')}</h2>
+    <p>${t('Firebase를 불러오지 못했어요. 인터넷 연결을 확인하고 새로 고침해 주세요.')}</p>
+    <button class="btn" onclick="location.reload()">${t('새로 고침')}</button>`,
   login: () => `
-    <h2>공동기기@KNUmed</h2>
-    <p>연구실이 같이 쓰는 기기를 예약하고 매뉴얼을 볼 수 있어요.<br>Google 계정으로 로그인해 주세요.</p>
-    <button class="btn primary" id="gateLogin">Google로 로그인</button>`,
+    <h2>${t('공동기기')}@KNUmed</h2>
+    <p>${t('연구실이 같이 쓰는 기기를 예약하고 매뉴얼을 볼 수 있어요.')}<br>${t('Google 계정으로 로그인해 주세요.')}</p>
+    <button class="btn primary" id="gateLogin">${t('Google로 로그인')}</button>
+    ${langSeg()}`,
   signup: () => `
-    <h2>가입 신청</h2>
-    <p>처음 오셨네요. 이름과 소속 연구실을 적어 주세요. 총관리자가 승인하면 쓸 수 있어요.</p>
+    <h2>${t('가입 신청')}</h2>
+    <p>${t('처음 오셨네요. 이름과 소속 연구실을 적어 주세요. 총관리자가 승인하면 쓸 수 있어요.')}</p>
     <form id="signupForm" class="form">
-      <label>이름<input name="name" required maxlength="40" autocomplete="name"></label>
-      <label>연구실
+      <label>${t('이름')}<input name="name" required maxlength="40" autocomplete="name"></label>
+      <label>${t('연구실')}
         <select name="lab" required>${labOptions()}</select>
       </label>
-      <label id="labOtherRow" hidden>연구실 이름<input name="labOther" maxlength="60" placeholder="예: 분자생물학 연구실"></label>
-      <p class="hint">${esc(S.user?.email || '')} 계정으로 신청해요.</p>
-      <div class="actions"><button type="button" class="btn" id="gateLogout">로그아웃</button><button class="btn primary">신청</button></div>
-    </form>`,
+      <label id="labOtherRow" hidden>${t('연구실 이름')}<input name="labOther" maxlength="60" placeholder="${t('예: 분자생물학 연구실')}"></label>
+      <p class="hint">${t('{email} 계정으로 신청해요.', { email: esc(S.user?.email || '') })}</p>
+      <div class="actions"><button type="button" class="btn" id="gateLogout">${t('로그아웃')}</button><button class="btn primary">${t('신청')}</button></div>
+    </form>
+    ${langSeg()}`,
   pending: () => `
-    <h2>승인 대기 중이에요</h2>
-    <p>가입 신청을 보냈어요. 총관리자가 승인하면 바로 쓸 수 있어요.</p>
+    <h2>${t('승인 대기 중이에요')}</h2>
+    <p>${t('가입 신청을 보냈어요. 총관리자가 승인하면 바로 쓸 수 있어요.')}</p>
     <dl class="kv">
-      <dt>이름</dt><dd>${esc(S.me?.name)}</dd>
-      <dt>연구실</dt><dd>${esc(labName(S.me?.labId) || S.me?.labName)}</dd>
-      <dt>계정</dt><dd>${esc(S.me?.email)}</dd>
+      <dt>${t('이름')}</dt><dd>${esc(S.me?.name)}</dd>
+      <dt>${t('연구실')}</dt><dd>${esc(labName(S.me?.labId) || S.me?.labName)}</dd>
+      <dt>${t('계정')}</dt><dd>${esc(S.me?.email)}</dd>
     </dl>
-    <button class="btn" id="gateLogout">로그아웃</button>`,
+    <button class="btn" id="gateLogout">${t('로그아웃')}</button>`,
   inactive: () => `
-    <h2>이용이 중지된 계정이에요</h2>
-    <p>총관리자에게 문의해 주세요.</p>
-    <button class="btn" id="gateLogout">로그아웃</button>`,
+    <h2>${t('이용이 중지된 계정이에요')}</h2>
+    <p>${t('총관리자에게 문의해 주세요.')}</p>
+    <button class="btn" id="gateLogout">${t('로그아웃')}</button>`,
   forbidden: () => `
     <h2>관리자 페이지는 열 수 없어요</h2>
     <p>기기 담당자와 총관리자만 볼 수 있어요.</p>
     <a class="btn" href="./">예약 화면으로</a>`,
 };
-const labOptions = () => `<option value="" disabled selected>고르세요</option>
+const labOptions = () => `<option value="" disabled selected>${t('고르세요')}</option>
   ${S.labs.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('')}
-  <option value="__other">목록에 없어요 (직접 입력)</option>`;
+  <option value="__other">${t('목록에 없어요 (직접 입력)')}</option>`;
+// 언어 고르기 (사용자 화면만): 바꾸면 다시 불러옴
+const langSeg = () => (PAGE === 'user'
+  ? `<div class="seg lang-seg" data-lang-seg><button type="button" data-v="ko" class="${LANG === 'ko' ? 'on' : ''}">한국어</button><button type="button" data-v="en" class="${LANG === 'en' ? 'on' : ''}">English</button></div>`
+  : '');
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-lang-seg] button');
+  if (!b || b.dataset.v === LANG) return;
+  prefs.lang = b.dataset.v; savePrefs(); location.reload();
+});
 function gate(name) {
   $('app').hidden = true;
   $('gate').hidden = false;
@@ -232,8 +242,8 @@ function gate(name) {
       const other = f.lab.value === '__other';
       const labId = other ? null : f.lab.value;
       const lab = other ? f.labOther.value.trim() : labName(labId);
-      try { await window.cloud.signup({ name: f.name.value.trim(), labId, labName: lab }); toast('가입 신청을 보냈어요'); }
-      catch (e) { fail('신청하지 못했어요', e); }
+      try { await window.cloud.signup({ name: f.name.value.trim(), labId, labName: lab }); toast(t('가입 신청을 보냈어요')); }
+      catch (e) { fail(t('신청하지 못했어요'), e); }
     };
   }
 }
@@ -244,30 +254,32 @@ function showAccount() {
   b.hidden = !S.user;
   if (!S.user) return;
   b.textContent = (S.me?.name || S.user.displayName || S.user.email || '?').slice(0, 1);
-  b.title = `${S.user.email} · 설정`;
+  b.title = `${S.user.email} · ${t('설정')}`;
   const link = $('adminLink');
   if (link) {
     link.hidden = !(shown === 'app' && canAdmin());
     const n = pendingBookings().length + pendingUsers().length; // 처리할 일 (알림 대신)
     $('adminBadge').hidden = !n;
+    $('adminBadge').title = t('처리할 승인 대기');
     $('adminBadge').textContent = n;
   }
 }
 document.body.insertAdjacentHTML('beforeend', `
 <dialog id="settingsDlg">
   <form method="dialog" class="form" id="settingsForm">
-    <h2>설정</h2>
+    <h2>${t('설정')}</h2>
     <fieldset id="meBox">
-      <legend>내 정보</legend>
-      <label>이름<span class="row"><input name="name" maxlength="40"><button type="button" class="btn" id="saveNameBtn">저장</button></span></label>
+      <legend>${t('내 정보')}</legend>
+      <label>${t('이름')}<span class="row"><input name="name" maxlength="40"><button type="button" class="btn" id="saveNameBtn">${t('저장')}</button></span></label>
       <p class="hint" id="meInfo"></p>
     </fieldset>
     <fieldset>
-      <legend>화면</legend>
-      <div class="field">테마 <div class="seg" id="themeSeg"><button type="button" data-v="auto">자동</button><button type="button" data-v="light">라이트</button><button type="button" data-v="dark">다크</button></div></div>
-      <div class="field">글씨 크기 <div class="seg" id="fsSeg"><button type="button" data-v="0.9">작게</button><button type="button" data-v="1">보통</button><button type="button" data-v="1.15">크게</button><button type="button" data-v="1.3">더 크게</button></div></div>
+      <legend>${t('화면')}</legend>
+      ${PAGE === 'user' ? `<div class="field">${t('언어')} ${langSeg()}</div>` : ''}
+      <div class="field">${t('테마')} <div class="seg" id="themeSeg"><button type="button" data-v="auto">${t('자동')}</button><button type="button" data-v="light">${t('라이트')}</button><button type="button" data-v="dark">${t('다크')}</button></div></div>
+      <div class="field">${t('글씨 크기')} <div class="seg" id="fsSeg"><button type="button" data-v="0.9">${t('작게')}</button><button type="button" data-v="1">${t('보통')}</button><button type="button" data-v="1.15">${t('크게')}</button><button type="button" data-v="1.3">${t('더 크게')}</button></div></div>
     </fieldset>
-    <div class="actions"><button type="button" class="btn danger" id="logoutBtn">로그아웃</button><button class="btn primary">닫기</button></div>
+    <div class="actions"><button type="button" class="btn danger" id="logoutBtn">${t('로그아웃')}</button><button class="btn primary">${t('닫기')}</button></div>
   </form>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite" popover="manual"></div>`);
@@ -276,9 +288,9 @@ function openSettings() {
   const f = $('settingsForm');
   f.name.value = S.me?.name || '';
   $('meBox').hidden = !S.me;
-  const role = S.me?.role === 'admin' ? '총관리자' : S.me?.role === 'pending' ? '가입 대기' : '사용자';
+  const role = S.me?.role === 'admin' ? t('총관리자') : S.me?.role === 'pending' ? t('가입 대기') : t('사용자');
   const managed = myEquip().map(e => e.name).join(', ');
-  $('meInfo').textContent = `${S.user?.email || ''} · ${labName(S.me?.labId) || S.me?.labName || '연구실 없음'} · ${role}${managed ? ` · 담당: ${managed}` : ''}`;
+  $('meInfo').textContent = `${S.user?.email || ''} · ${labName(S.me?.labId) || S.me?.labName || t('연구실 없음')} · ${role}${managed ? ` · ${t('담당: {list}', { list: managed })}` : ''}`;
   markSeg($('themeSeg'), prefs.theme);
   markSeg($('fsSeg'), String(prefs.fs));
   $('settingsDlg').showModal();
@@ -291,8 +303,8 @@ $('logoutBtn').onclick = () => { $('settingsDlg').close(); window.cloud?.logout(
 $('saveNameBtn').onclick = async () => {
   const name = $('settingsForm').name.value.trim();
   if (!name || name === S.me?.name) return;
-  try { await window.cloud.updateMyName(name); toast('이름을 바꿨어요. 새 예약부터 이 이름으로 보여요'); }
-  catch (e) { fail('이름을 바꾸지 못했어요', e); }
+  try { await window.cloud.updateMyName(name); toast(t('이름을 바꿨어요. 새 예약부터 이 이름으로 보여요')); }
+  catch (e) { fail(t('이름을 바꾸지 못했어요'), e); }
 };
 
 // ---------- 탭(.seg) ----------
@@ -317,7 +329,7 @@ if (matchMedia('(pointer: coarse)').matches) {
     if (open) open.close();
     else if (window.backToMain?.()) { /* 첫 탭으로 돌아감 */ }
     else if (Date.now() - lastBack < 2000) { history.back(); return; }
-    else { lastBack = Date.now(); toast('한 번 더 누르면 종료돼요'); }
+    else { lastBack = Date.now(); toast(t('한 번 더 누르면 종료돼요')); }
     history.pushState(null, '');
   });
 }
@@ -329,6 +341,11 @@ if (PAGE === 'user') {
   window.appStart = () => showTab(['book', 'mine', 'equip'].includes(prefs.tab) ? prefs.tab : 'book');
   window.backToMain = () => { if (prefs.tab === 'book') return false; showTab('book'); return true; };
 }
+
+// HTML에 직접 쓴 글 (사용자 화면의 탭 이름 등): data-i18n은 글자만, data-i18n-html은 안쪽 HTML째로 바꿈
+for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.textContent.trim());
+for (const el of document.querySelectorAll('[data-i18n-html]')) el.innerHTML = t(el.innerHTML.trim());
+if (PAGE === 'user') document.title = `${t('공동기기')}@KNUmed`;
 
 applyTheme();
 gate('loading');

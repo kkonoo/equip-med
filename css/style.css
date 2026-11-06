@@ -208,6 +208,9 @@ main { flex: 1; display: flex; flex-direction: column; padding: 0 24px 32px; min
   .topbar .seg button { flex: 1; }
   .wide-only { display: none; }
   .app-title .sub { display: none; }
+  .app-title { flex: 1 1 0; min-width: 0; }
+  .app-title > span, .app-title a > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  :root[lang="en"] .app-title .at { display: none; } /* 영어 이름이 길어서 폰에서는 @KNUmed 빼기 */
 }
 
 /* ---------- 기기 탭 ---------- */
@@ -353,3 +356,7 @@ fieldset[disabled] { opacity: .65; }
   .users-table td[data-k=이름], .users-table td[data-k=이메일] { grid-column: 1 / -1; }
   .users-table td select { width: 100%; }
 }
+
+/* ---------- 언어 고르기 (사용자 화면) ---------- */
+.gate-card .lang-seg { display: flex; width: max-content; margin: 18px auto 0; }
+.form .field .lang-seg { margin: 0; }
