@@ -58,6 +58,7 @@
 6. **프로젝트 설정 → 내 앱 → 웹 앱 추가**에서 나온 `firebaseConfig` 값을 [`js/firebase-config.js`](js/firebase-config.js)에 넣고 main에 올려요. 값이 `null`이면 '설정이 필요해요' 안내만 보여요. (이 값은 공개돼도 괜찮아요. 데이터 보호는 보안 규칙이 해요.)
 7. 앱에서 구글로 로그인해 **가입 신청**을 해요. 그다음 Firebase 콘솔 **Firestore → 데이터 → `users` → 내 문서**에서 `role`을 `admin`으로 바꾸면 첫 총관리자가 돼요.
 8. 관리자 페이지에서 **연구실**을 추가하고, **기기**를 추가해 담당자 · 예약 규칙 · 매뉴얼을 넣어요. 이후 가입 신청은 가입 승인 탭에서 처리해요.
+   - 동인동 공동기기(의대 연구기기현황 52개)는 한 번에 넣을 수 있어요: 관리자 페이지를 총관리자로 열고 F12 → Console에 `await import('./tools/import-dongin.js')`를 입력해요. 이미 있는 이름은 건너뛰어요. 담당자는 비어 있으니 들어간 뒤 기기 탭에서 지정해요.
 
 ## 데이터는 어디에
 
@@ -110,4 +111,5 @@
 | `firestore.indexes.json` | 복합 인덱스 (bookings: equipId + end, equipId + start) |
 | `manifest.webmanifest`, `sw.js`, `icons/` | PWA |
 | `tools/serve.ps1`, `tools/make-icons.ps1` | 로컬 서버, 아이콘 |
+| `tools/import-dongin.js` | 동인동 공동기기 52개 한 번에 넣기 (관리자 페이지 콘솔에서 실행) |
 | `SPEC.md` | 첫 버전 스펙 |
