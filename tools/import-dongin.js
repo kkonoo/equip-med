@@ -1,12 +1,14 @@
 // 동인동 공동기기 넣기 (한 번만): 경북대 의대 연구기기현황(2026.10)의 동인동 기기 52개를 equipment에 추가해요.
 // 쓰는 법: admin.html을 총관리자로 연 뒤 브라우저 콘솔(F12 → Console)에  await import('./tools/import-dongin.js')  을 입력해요.
 // - 같은 이름의 기기가 이미 있으면 건너뛰어요 (여러 번 실행해도 두 개가 되지 않음).
-//   예전 버전으로 넣어 링크가 목록 페이지(SRC)인 기기는, 그 링크만 기기별 페이지로 바꿔요.
+//   예전 버전으로 넣은 기기는 고쳐요: 링크가 목록 페이지(SRC)면 기기별 페이지로,
+//   매뉴얼의 위치·구분·담당·출처 줄(앱에 이미 있거나 링크와 겹침)은 지우고 담당 연락처는 '문의' 한 줄로 (다른 내용은 그대로).
 // - 담당자는 비어 있고(앱에 가입한 뒤 기기 탭에서 지정), 모두 '승인 필요' · 예약 단위 30분으로 들어가요.
 // - 목록은 lab-manager js/equip.js 의 SHARED_EQUIPS '동인동 공동기기'를 그대로 옮김 (출처 https://med.knu.ac.kr/pages/sub.htm?nav_code=knu1670414710)
-//   매뉴얼 본문 = 설명 · 모델 · 위치 · 구분 · 담당 · 이용 방법. 이용 방법에 시간(09:00–17:00 등)이 있으면 예약 가능 시간대로 넣음.
+//   매뉴얼 본문 = 설명 · 모델 · 이용 방법 · 문의. 이용 방법에 시간(09:00–17:00 등)이 있으면 예약 가능 시간대로 넣음.
+//   kind = 홈페이지 구분 ('연구기기'는 실습실·교실 기기, 없으면 공동기기실 장비) — 참고용
 //   knu = 의대 홈페이지의 기기 번호(idx). 같은 기기가 두 번 올라간 것(초고속·고속원심분리기, QuantStudio 5)은 이용 방법이 적힌 쪽.
-const KIND = '공동기기실 장비', OWNER = '정지연 053-420-4989 jiyean98@knu.ac.kr';
+const CONTACT = '정지연 053-420-4989 jiyean98@knu.ac.kr';
 const SRC = 'https://med.knu.ac.kr/pages/sub.htm?nav_code=knu1670414710';
 const LINK = '의대 홈페이지 기기 정보';
 const knuUrl = n => `${SRC}&mode=view&mv_data=${btoa(`idx=${n}&table=cs_booking_equipment`)}`;
@@ -65,17 +67,28 @@ const ITEMS = [
   { name: 'Cryostat CM1850 (냉동조직박절기)', desc: '냉동 조직을 얇게 잘라 절편을 만드는 기본형 크라이오스탯', model: 'CM1850', maker: 'Leica', place: 'N147', kind: '연구기기', knu: 501 },
 ];
 
+// 예전 버전으로 넣은 매뉴얼 → 지금 형식. 바꿀 게 없으면 null
+const OLD_LINE = /^(위치|구분|담당|출처): /;
+function upgrade(x, e) {
+  const m = e.manual || {}, old = m.body || '', lines = old.split('\n');
+  let body = old;
+  if (lines.some(l => OLD_LINE.test(l))) {
+    const contact = lines.find(l => l.startsWith('담당: '))?.slice(4);
+    body = lines.filter(l => !OLD_LINE.test(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    if (contact) body += `\n문의: ${contact}`;
+  }
+  const links = (m.links || []).map(l => (l.url === SRC ? { title: LINK, url: knuUrl(x.knu) } : l));
+  return body !== old || JSON.stringify(links) !== JSON.stringify(m.links || []) ? { ...m, body, links } : null;
+}
+
 function toEquip(i) {
   const hours = (i.how || '').match(/(\d{2}:\d{2})–(\d{2}:\d{2})/);
   const where = [i.place, i.spot].filter(Boolean).join(' ');
   const body = [
     i.desc, '',
     `모델: ${[i.model, i.maker].filter(Boolean).join(' · ')}`,
-    `위치: ${where}`,
-    `구분: ${i.kind || KIND}`,
-    `담당: ${i.owner || OWNER}`,
     ...(i.how ? [`이용 방법: ${i.how}`] : []),
-    '', '출처: 경북대 의대 연구기기현황 (2026.10)',
+    `문의: ${CONTACT}`,
   ].join('\n');
   return {
     name: i.name, location: where, managers: [], managerNames: {}, requiresApproval: true,
@@ -90,22 +103,18 @@ if (!window.cloud || !isAdmin()) {
 } else {
   const have = new Map(S.equipment.map(e => [e.name, e]));
   const todo = ITEMS.filter(x => !have.has(x.name));
-  const relink = ITEMS.filter(x => have.get(x.name)?.manual?.links?.some(l => l.url === SRC));
+  const fix = ITEMS.filter(x => have.has(x.name)).map(x => [have.get(x.name), upgrade(x, have.get(x.name))]).filter(([, m]) => m);
   const ask = [
     todo.length && `동인동 공동기기 ${todo.length}개를 넣어요.${todo.length < ITEMS.length ? ` (이미 있는 ${ITEMS.length - todo.length}개는 건너뜀)` : ''}\n담당자는 비어 있고, 모두 '승인 필요'로 들어가요.`,
-    relink.length && `이미 있는 ${relink.length}개의 링크를 목록 페이지에서 기기별 페이지로 바꿔요.`,
+    fix.length && `이미 있는 ${fix.length}개를 고쳐요: 링크는 기기별 페이지로, 매뉴얼의 위치·구분·담당·출처 줄은 지우고 연락처는 '문의' 한 줄로.`,
   ].filter(Boolean).join('\n\n');
   if (!ask) toast('동인동 공동기기는 이미 다 들어 있어요');
   else if (confirm(`${ask}\n\n진행할까요?`)) {
     let order = Math.max(0, ...S.equipment.map(e => e.order ?? 0)), done = 0, fixed = 0;
     try {
       for (const x of todo) { await window.cloud.saveEquipment(null, { ...toEquip(x), order: ++order }); done++; }
-      for (const x of relink) {
-        const e = have.get(x.name);
-        const links = e.manual.links.map(l => (l.url === SRC ? { title: LINK, url: knuUrl(x.knu) } : l));
-        await window.cloud.saveEquipment(e.id, { manual: { ...e.manual, links } }); fixed++;
-      }
-      toast([done && `${done}개를 넣었어요`, fixed && `${fixed}개의 링크를 바꿨어요`].filter(Boolean).join(' · '));
-    } catch (e) { fail(`${done}개 넣고 ${fixed}개 링크를 바꾸다 멈췄어요`, e); }
+      for (const [e, manual] of fix) { await window.cloud.saveEquipment(e.id, { manual }); fixed++; }
+      toast([done && `${done}개를 넣었어요`, fixed && `${fixed}개를 고쳤어요`].filter(Boolean).join(' · '));
+    } catch (e) { fail(`${done}개 넣고 ${fixed}개 고치다 멈췄어요`, e); }
   }
 }
