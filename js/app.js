@@ -77,15 +77,16 @@ function statusLine(e) { // 점검·고장일 때 사유와 기간
 }
 const safeUrl = u => (/^https?:\/\//i.test(u || '') ? u : null);
 // 위치의 첫 단어(호수·건물)가 같은 기기끼리 묶음 → [[공간, [기기…]], …]
-// 공간은 호수(첫 숫자) 오름차순 → 숫자 없는 공간은 그 뒤 이름순 → 위치 없는 기기는 맨 뒤. 공간 안은 기기 이름 abc순
+// 공간 순서: N호수(N107…) 오름차순 → 다른 호수(343호…) 오름차순 → 숫자 없는 공간 이름순 → 위치 없음. 공간 안은 기기 이름 abc순
 const placeOf = e => (e.location || '').trim().split(/\s+/)[0];
 const placeRest = e => (e.location || '').trim().split(/\s+/).slice(1).join(' ');
-const roomNo = k => +(k.match(/\d+/)?.[0] ?? Infinity);
+const placeRank = k => (!k ? 3 : /^N\d/i.test(k) ? 0 : /\d/.test(k) ? 1 : 2);
+const roomNo = k => +(k.match(/\d+/)?.[0] ?? 0);
 function byPlace(list) {
   const m = new Map();
   for (const e of list) m.set(placeOf(e), [...(m.get(placeOf(e)) || []), e]);
   for (const v of m.values()) v.sort((a, b) => String(a.name).localeCompare(String(b.name), 'en', { numeric: true, sensitivity: 'base' }));
-  return [...m].sort(([a], [b]) => !a - !b || roomNo(a) - roomNo(b) || a.localeCompare(b, 'ko', { numeric: true }));
+  return [...m].sort(([a], [b]) => placeRank(a) - placeRank(b) || roomNo(a) - roomNo(b) || a.localeCompare(b, 'ko', { numeric: true }));
 }
 
 let toastTimer;

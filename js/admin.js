@@ -228,7 +228,7 @@ function renderEquipAdmin(box) {
     <section class="panel">
       <div class="panel-head"><h2>기기</h2><span class="hint">${isAdmin() ? '사용자 화면에서는 공간(호수)별로 묶여 이름순으로 보여요' : '담당 기기의 승인 여부·예약 규칙·상태·매뉴얼을 고칠 수 있어요'}</span>
         ${isAdmin() ? '<button class="btn primary" id="addEquip">기기 추가</button>' : ''}</div>
-      ${list.length ? list.map((e, i) => `
+      ${list.length ? list.map(e => `
         <div class="item" data-id="${esc(e.id)}">
           <div class="item-main">
             <div class="item-title"><b>${esc(e.name)}</b> ${statusChip(e)} <span class="chip ${e.requiresApproval === false ? 'quiet' : 'warn'}">${e.requiresApproval === false ? '바로 확정' : '승인 필요'}</span></div>
@@ -236,20 +236,12 @@ function renderEquipAdmin(box) {
             ${statusLine(e) ? `<div class="item-warn">⚠ ${esc(statusLine(e))}</div>` : ''}
           </div>
           <div class="item-actions">
-            ${isAdmin() ? `<button class="icon-btn small" data-move="-1" title="위로"${i ? '' : ' disabled'}>↑</button><button class="icon-btn small" data-move="1" title="아래로"${i < list.length - 1 ? '' : ' disabled'}>↓</button>` : ''}
             <button class="btn" data-edit>✎ 수정</button>
           </div>
         </div>`).join('') : '<p class="empty">아직 기기가 없어요. 기기 추가로 시작해요.</p>'}
     </section>`;
   $('addEquip')?.addEventListener('click', () => openEquipEdit(null));
   box.querySelectorAll('[data-edit]').forEach(b => { b.onclick = () => openEquipEdit(b.closest('.item').dataset.id); });
-  box.querySelectorAll('[data-move]').forEach(b => {
-    b.onclick = async () => {
-      const ids = list.map(e => e.id), i = ids.indexOf(b.closest('.item').dataset.id), j = i + Number(b.dataset.move);
-      [ids[i], ids[j]] = [ids[j], ids[i]];
-      try { await window.cloud.reorder('equipment', ids); } catch (e) { fail('순서를 바꾸지 못했어요', e); }
-    };
-  });
 }
 
 const SLOTS = [10, 15, 20, 30, 60, 120];
