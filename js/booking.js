@@ -13,7 +13,7 @@ narrow.addEventListener('change', () => { if (prefs.tab === 'book') render(); })
 const ACTIVE = new Set(['pending', 'approved']); // 시간을 차지하는 상태
 
 function bkEquip() {
-  const e = equipById(prefs.equipId) || S.equipment[0];
+  const e = equipById(prefs.equipId) || byPlace(S.equipment)[0]?.[1][0];
   if (e && prefs.equipId !== e.id) { prefs.equipId = e.id; savePrefs(); }
   return e;
 }

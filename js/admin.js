@@ -226,7 +226,7 @@ function renderEquipAdmin(box) {
   const list = scopeEquip();
   box.innerHTML = `
     <section class="panel">
-      <div class="panel-head"><h2>기기</h2><span class="hint">${isAdmin() ? '순서는 사용자 화면의 기기 순서예요' : '담당 기기의 승인 여부·예약 규칙·상태·매뉴얼을 고칠 수 있어요'}</span>
+      <div class="panel-head"><h2>기기</h2><span class="hint">${isAdmin() ? '사용자 화면에서는 공간(호수)별로 묶여 이름순으로 보여요' : '담당 기기의 승인 여부·예약 규칙·상태·매뉴얼을 고칠 수 있어요'}</span>
         ${isAdmin() ? '<button class="btn primary" id="addEquip">기기 추가</button>' : ''}</div>
       ${list.length ? list.map((e, i) => `
         <div class="item" data-id="${esc(e.id)}">
