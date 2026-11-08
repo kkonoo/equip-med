@@ -321,9 +321,13 @@ function openEquipEdit(id) {
       <fieldset>
         <legend>매뉴얼</legend>
         <label>본문<textarea name="body" rows="8" placeholder="사용 순서, 주의할 점… 줄바꿈이 그대로 보여요">${esc(e.manual?.body || '')}</textarea></label>
-        <div class="field-col">링크 <span class="hint">PDF·사진은 구글 드라이브 링크로 붙여요</span>
+        <div class="field-col">링크 <span class="hint">${id && window.cloud.canUpload ? 'PDF·동영상은 \'파일 올리기\'로 내 드라이브 #공동기기 폴더에 올라가고 링크가 바로 붙어요' : 'PDF·동영상은 구글 드라이브에 올리고 링크로 붙여요'}</span>
           <div id="eqLinks"></div>
-          <button type="button" class="btn" id="eqAddLink">링크 추가</button>
+          <div class="row">
+            <button type="button" class="btn" id="eqAddLink">링크 추가</button>
+            ${id && window.cloud.canUpload ? '<label class="btn" id="eqUpBtn">📤 파일 올리기<input type="file" id="eqUpFile" hidden></label>' : ''}
+          </div>
+          ${id && window.cloud.canUpload ? '<p class="hint" id="eqUpState"></p>' : ''}
         </div>
       </fieldset>
       <p class="err" id="eqErr"></p>
@@ -339,10 +343,30 @@ function openEquipEdit(id) {
     status = v; markSeg($('eqStatus'), v);
     $('eqDown').hidden = $('eqDownHint').hidden = v === 'ok';
   };
-  const linkRow = (l = {}) => `<div class="row link-row"><input name="lt" placeholder="제목" maxlength="60" value="${esc(l.title || '')}"><input name="lu" placeholder="https://drive.google.com/…" value="${esc(l.url || '')}"><button type="button" class="icon-btn small" title="빼기">✕</button></div>`;
+  const linkRow = (l = {}) => `<div class="row link-row" data-type="${esc(l.type || '')}"><input name="lt" placeholder="제목" maxlength="60" value="${esc(l.title || '')}"><input name="lu" placeholder="https://drive.google.com/…" value="${esc(l.url || '')}"><button type="button" class="icon-btn small" title="빼기">✕</button></div>`;
   $('eqLinks').innerHTML = (e.manual?.links || []).map(linkRow).join('');
   $('eqAddLink').onclick = () => $('eqLinks').insertAdjacentHTML('beforeend', linkRow());
   $('eqLinks').onclick = ev => { if (ev.target.closest('.icon-btn')) ev.target.closest('.link-row').remove(); };
+  // 파일 올리기 (Apps Script → 내 드라이브). 다 올라가면 링크를 바로 저장하고 위 목록에도 붙임
+  $('eqUpFile')?.addEventListener('change', async ev => {
+    const file = ev.target.files[0]; ev.target.value = '';
+    if (!file) return;
+    const btn = $('eqUpBtn'), st = $('eqUpState');
+    btn.classList.add('disabled'); ev.target.disabled = true;
+    st.textContent = `올리는 중… 0% · ${file.name}`;
+    try {
+      const f = await window.cloud.uploadManual(id, file, p => { st.textContent = `올리는 중… ${Math.round(p * 100)}% · ${file.name}`; });
+      const link = { title: file.name.replace(/\.[^.]+$/, '').slice(0, 60), url: f.url, type: f.mimeType || file.type || '' };
+      const cur = equipById(id) || e;
+      await window.cloud.saveEquipment(id, { manual: { body: cur.manual?.body || '', links: [...(cur.manual?.links || []), link] } });
+      $('eqLinks')?.insertAdjacentHTML('beforeend', linkRow(link));
+      st.textContent = `올렸어요: ${file.name}`;
+      toast('파일을 올리고 링크를 붙였어요');
+    } catch (x) {
+      st.textContent = '';
+      if (x.userMsg) toast(x.userMsg, 4000); else fail('파일을 올리지 못했어요', x);
+    } finally { btn.classList.remove('disabled'); ev.target.disabled = false; }
+  });
   $('eqClose').onclick = () => dlg.close();
   // 사진: 고르면 줄여서 바로 저장 (위 칸들의 '저장'과 따로)
   const renderPhoto = () => {
@@ -407,7 +431,7 @@ function openEquipEdit(id) {
     if (rules.maxDaysAhead != null && !(Number.isInteger(rules.maxDaysAhead) && rules.maxDaysAhead >= 0)) return err('며칠 앞까지는 0 이상의 정수로 적어 주세요.');
     if (!rules.openFrom !== !rules.openTo) return err('예약 가능 시간대는 시작과 끝을 둘 다 적거나 둘 다 비워 주세요.');
     if (rules.openFrom && toMin(rules.openFrom) >= toMin(rules.openTo)) return err('예약 가능 시간대의 끝이 시작보다 뒤여야 해요.');
-    const links = [...$('eqLinks').querySelectorAll('.link-row')].map(row => ({ title: row.querySelector('[name=lt]').value.trim(), url: row.querySelector('[name=lu]').value.trim() })).filter(l => l.url);
+    const links = [...$('eqLinks').querySelectorAll('.link-row')].map(row => ({ title: row.querySelector('[name=lt]').value.trim(), url: row.querySelector('[name=lu]').value.trim(), ...(row.dataset.type ? { type: row.dataset.type } : {}) })).filter(l => l.url);
     const bad = links.find(l => !safeUrl(l.url));
     if (bad) return err(`링크는 http:// 또는 https:// 로 시작해야 해요: ${bad.url}`);
     const down = status !== 'ok';

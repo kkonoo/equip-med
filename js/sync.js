@@ -8,7 +8,8 @@
 //   bookings/{bookingId}   예약
 //   logs/{bookingId}       사용일지 (예약 하나에 하나)
 // 다른 파일은 window.cloud 의 함수만 써요. 시간은 주고받을 때 ms 숫자 ↔ Timestamp 로 바꿈.
-import { firebaseConfig } from './firebase-config.js';
+import * as CFG from './firebase-config.js'; // firebaseConfig, manualUploadUrl
+const { firebaseConfig } = CFG;
 
 const SDK = 'https://www.gstatic.com/firebasejs/12.19.0';
 
@@ -161,6 +162,30 @@ async function start() {
       b.delete(ref('equipment', id)); b.delete(ref('photos', id));
       return b.commit();
     },
+    // 매뉴얼 파일 올리기: Apps Script 웹 앱(tools/drive-upload.gs)을 거쳐 내 드라이브 '#공동기기' 폴더로.
+    // 16MB씩 나눠 보냄 (웹 앱이 한 번에 받는 크기 제한 안). 돌려주는 것: { id, name, mimeType, url }
+    canUpload: !!CFG.manualUploadUrl,
+    uploadManual: async (equipId, file, onProgress) => {
+      const post = async body => {
+        let res;
+        try { res = await fetch(CFG.manualUploadUrl, { method: 'POST', body: JSON.stringify(body) }); } // text/plain이라 CORS 사전 요청 없음
+        catch (e) { throw Object.assign(e, { userMsg: '올리기 서버에 연결하지 못했어요. 인터넷을 확인하고 다시 올려 주세요' }); }
+        const j = await res.json().catch(() => null);
+        if (!j?.ok) throw Object.assign(new Error(j?.error || `HTTP ${res.status}`), { userMsg: j?.error || '올리지 못했어요' });
+        return j;
+      };
+      const b64 = blob => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => no(r.error); r.readAsDataURL(blob); });
+      const { uploadId } = await post({ action: 'start', idToken: await auth.currentUser.getIdToken(), equipId, name: file.name, mimeType: file.type || 'application/octet-stream', size: file.size });
+      const CHUNK = 16 * 1024 * 1024; // 256KB의 배수여야 함 (드라이브 이어 올리기 규칙)
+      let last = null;
+      for (let off = 0; off < file.size; off += CHUNK) {
+        last = await post({ action: 'chunk', uploadId, offset: off, data: await b64(file.slice(off, off + CHUNK)) });
+        onProgress?.(Math.min(1, (off + CHUNK) / file.size));
+      }
+      if (!last?.done) throw Object.assign(new Error('not finished'), { userMsg: '끝까지 올리지 못했어요. 다시 올려 주세요' });
+      return last.file;
+    },
+
     // 기기 사진 (담당자·총관리자): src = 앱에 들어 있는 사진 경로(img/equip/…) 또는 줄인 사진의 data URL
     savePhoto: (equipId, src) => F.setDoc(ref('photos', equipId), { src, by: S.user.uid, updatedAt: now() }),
     deletePhoto: equipId => F.deleteDoc(ref('photos', equipId)),

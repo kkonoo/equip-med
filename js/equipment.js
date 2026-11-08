@@ -33,6 +33,15 @@ function trainNotice(e) {
     : `<p class="notice">🎓 ${esc(t('교육 기록이 없어요. 처음 쓰는 기기라면 교육을 먼저 받아요. 매뉴얼의 문의처나 담당자에게 연락해요.'))}</p>`;
 }
 
+// 링크 아이콘: 올린 파일은 종류(type)로, 그 밖에는 주소·제목의 확장자로
+function linkIcon(l) {
+  const s = `${l.type || ''} ${l.title || ''} ${l.url || ''}`.toLowerCase();
+  if (/video\/|\.(mp4|mov|m4v|avi|mkv|webm)\b|youtu\.?be/.test(s)) return '🎬';
+  if (/application\/pdf|\.pdf\b/.test(s)) return '📄';
+  if (/image\/|\.(jpe?g|png|gif|webp|heic)\b/.test(s)) return '🖼️';
+  return '🔗';
+}
+
 function openEquip(id) {
   const e = equipById(id);
   if (!e) return;
@@ -48,7 +57,7 @@ function openEquip(id) {
         <h3>${t('매뉴얼')}</h3>
         ${e.manual?.body ? `<div class="manual">${esc(e.manual.body)}</div>` : `<p class="hint">${t('아직 매뉴얼이 없어요.')}</p>`}
       </section>
-      ${links.length ? `<section><h3>${t('링크')}</h3><ul class="links">${links.map(l => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener">🔗 ${esc(l.title || l.url)}</a></li>`).join('')}</ul></section>` : ''}
+      ${links.length ? `<section><h3>${t('링크')}</h3><ul class="links">${links.map(l => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener">${linkIcon(l)} ${esc(l.title || l.url)}</a></li>`).join('')}</ul></section>` : ''}
       <section>
         <h3>${t('예약 규칙')}</h3>
         <ul class="rules">${ruleList(e).map(t => `<li>${esc(t)}</li>`).join('')}</ul>

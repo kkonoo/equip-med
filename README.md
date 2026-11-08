@@ -60,6 +60,25 @@
 7. 앱에서 구글로 로그인해 **가입 신청**을 해요. 그다음 Firebase 콘솔 **Firestore → 데이터 → `users` → 내 문서**에서 `role`을 `admin`으로 바꾸면 첫 총관리자가 돼요.
 8. 관리자 페이지에서 **연구실**을 추가하고, **기기**를 추가해 담당자 · 예약 규칙 · 매뉴얼을 넣어요. 이후 가입 신청은 가입 승인 탭에서 처리해요.
    - 동인동 공동기기(의대 연구기기현황 52개)는 한 번에 넣을 수 있어요: 관리자 페이지를 총관리자로 열고 F12 → Console에 `await import('./tools/import-dongin.js')`를 입력해요. 이미 있는 이름은 건너뛰어요. 담당자는 비어 있으니 들어간 뒤 기기 탭에서 지정해요. 매뉴얼은 설명 · 모델 · 이용 방법 · 문의(공동기기실 연락처)이고, 링크는 의대 홈페이지의 그 기기 페이지예요. 사진은 의대 홈페이지 사진(50개, 2개는 홈페이지에 없음)이 들어가요. 이용 방법에 '교육'이 있는 9개는 '교육 필요'로, 예약할 때 알아야 할 것(오퍼레이터 예약, 예약대장, 주말 불가, 실습 없는 기간 등)은 '예약 참고'로 들어가요. 예전 버전으로 넣은 기기는 다시 실행하면 고쳐져요 (목록 페이지 링크 → 기기 페이지, 매뉴얼의 위치 · 구분 · 담당 · 출처 줄 → 지우고 연락처는 '문의' 한 줄로, 정한 적 없는 교육 필요 · 예약 참고를 넣음. 손으로 고친 내용은 그대로).
+9. (매뉴얼 파일 올리기를 쓸 때) 아래 [매뉴얼 파일 올리기 (Apps Script)](#매뉴얼-파일-올리기-apps-script)를 한 번 해요.
+
+## 매뉴얼 파일 올리기 (Apps Script)
+
+기기 수정 창의 **📤 파일 올리기**로 PDF · 동영상 같은 매뉴얼 파일을 내 구글 드라이브 `#공동기기` 폴더(그 안의 기기 이름 폴더)에 올리고, 보기 링크가 그 기기 매뉴얼에 바로 붙어요. 총관리자와 그 기기 담당자만 올릴 수 있어요.
+
+- 앱 → [`tools/drive-upload.gs`](tools/drive-upload.gs)(내 계정으로 도는 Apps Script 웹 앱) → 드라이브. 웹 앱은 앱 로그인 토큰으로 Firestore를 읽어 총관리자 · 담당자인지 확인해요 (가짜 · 만료 토큰은 Firestore가 거절).
+- 큰 동영상도 돼요: 앱이 16MB씩 나눠 보내고 드라이브의 이어 올리기에 차례로 붙여요. 올리는 동안 % 가 보여요.
+- 올린 파일은 '링크가 있는 모든 사용자 보기'로 두어요. 앱에서 링크를 빼도 드라이브 파일은 지워지지 않아요 (드라이브에서 지워요). 드라이브 용량(무료 15GB)을 써요.
+
+설정 (한 번):
+1. [script.google.com](https://script.google.com)에서 **새 프로젝트**를 만들고 이름을 '공동기기 매뉴얼 올리기'로 해요.
+2. `Code.gs` 내용을 지우고 [`tools/drive-upload.gs`](tools/drive-upload.gs) 내용을 붙여 넣고 저장해요. 맨 위 `FOLDER_ID`는 `#공동기기` 폴더로 들어 있어요 (폴더를 바꾸면 주소의 `folders/` 뒤를 넣어요).
+3. **배포 → 새 배포** → 유형 **웹 앱** → 실행 사용자 **나**, 액세스 권한이 있는 사용자 **모든 사용자** → **배포**.
+4. 권한 검토에서 내 계정을 고르고, 'Google에서 확인하지 않은 앱'이 나오면 **고급 → (프로젝트 이름)(으)로 이동 → 허용**해요 (내가 만든 스크립트예요. 드라이브와 외부 연결 권한).
+5. 나온 **웹 앱 URL**(`…/exec`)을 [`js/firebase-config.js`](js/firebase-config.js)의 `manualUploadUrl`에 넣고 main에 올려요. 그러면 기기 수정 창에 **📤 파일 올리기**가 생겨요.
+
+- `drive-upload.gs`를 고친 뒤에는 **배포 → 배포 관리 → ✎ → 버전: 새 버전 → 배포**를 해요 (주소는 그대로).
+- 웹 앱 주소는 아무나 부를 수 있지만, 올리기는 앱의 총관리자 · 그 기기 담당자 토큰이 있어야 시작돼요.
 
 ## 데이터는 어디에
 
@@ -69,7 +88,7 @@
 |---|---|---|
 | `users/{uid}` | 사용자 | name, email, labId, labName, role(`pending` / `member` / `admin`), active, createdAt, approvedBy, approvedAt |
 | `labs/{labId}` | 연구실 | name, order |
-| `equipment/{equipId}` | 기기 | name, location, managers[uid], managerNames{uid: 이름}, requiresApproval, rules{slotMinutes, maxHours, maxDaysAhead, openFrom, openTo}, status(`ok` / `maintenance` / `broken`), statusNote, statusUntil, manual{body, links[{title, url}]}, order, updatedAt |
+| `equipment/{equipId}` | 기기 | name, location, managers[uid], managerNames{uid: 이름}, requiresApproval, rules{slotMinutes, maxHours, maxDaysAhead, openFrom, openTo}, status(`ok` / `maintenance` / `broken`), statusNote, statusUntil, manual{body, links[{title, url, type(올린 파일의 종류)}]}, order, updatedAt |
 | `bookings/{bookingId}` | 예약 | equipId, uid, userName, labId, start, end, purpose, status(`pending` / `approved` / `rejected` / `cancelled`), decidedBy, decidedAt, reason, createdAt, updatedAt |
 | `logs/{bookingId}` | 사용일지 (예약 하나에 하나) | equipId, uid, labId, actualStart, actualEnd, note, problem, createdAt, updatedAt |
 | `photos/{equipId}` | 기기 사진 (기기 하나에 하나) | src(앱에 들어 있는 사진 경로 `img/equip/…` 또는 앱에서 줄여 올린 사진의 data URL), by, updatedAt |
@@ -85,7 +104,6 @@
 ## 첫 버전에서 뺀 것
 
 - 이메일 · 푸시 알림 (Cloud Functions가 필요해서 결제 계정을 등록해야 해요). 지금은 앱 안 배지와 내 예약 상태로 대신해요.
-- 매뉴얼 파일 올리기 (PDF · 동영상은 구글 드라이브에 올리고 링크로). 기기 사진은 올릴 수 있어요.
 - 사용료 정산, 통계 CSV 내보내기, 반복 예약, 구글 캘린더 연동.
 - 동시 신청 완전 차단 (기기 · 날짜별 잠금 문서와 트랜잭션으로 나중에 더할 수 있어요).
 
@@ -116,5 +134,6 @@
 | `manifest.webmanifest`, `sw.js`, `icons/` | PWA |
 | `tools/serve.ps1`, `tools/make-icons.ps1` | 로컬 서버, 아이콘 |
 | `tools/import-dongin.js` | 동인동 공동기기 52개 한 번에 넣기 (관리자 페이지 콘솔에서 실행) |
+| `tools/drive-upload.gs` | 매뉴얼 파일 올리기 Apps Script 웹 앱 (편집기에 붙여 넣는 원본, 앱이 직접 쓰지 않음) |
 | `img/equip/` | 동인동 기기 사진 50장 (의대 홈페이지 사진을 긴 쪽 800px로 줄임, `knu-{홈페이지 기기 번호}.jpg`) |
 | `SPEC.md` | 첫 버전 스펙 |
