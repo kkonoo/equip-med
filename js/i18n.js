@@ -36,7 +36,7 @@ const EN = {
   // 공통 메시지
   '{what}: 권한이 없어요': '{what}: permission denied',
   '{what}을(를) 불러오지 못했어요': "Couldn't load {what}",
-  '기기 목록': 'the equipment list', '연구실 목록': 'the lab list', '예약 목록': 'bookings', '내 예약 목록': 'your bookings', '사용일지 목록': 'usage logs',
+  '기기 목록': 'the equipment list', '연구실 목록': 'the lab list', '예약 목록': 'bookings', '내 예약 목록': 'your bookings', '사용일지 목록': 'usage logs', '기기 사진': 'equipment photos',
   '예약': 'Book', '내 예약': 'My bookings', '사용일지': 'Usage log',
   '내 예약|칸': 'Mine', '내 예약|창': 'My booking', '예약|창': 'Booking', '취소|버튼': 'Cancel',
   '{name} 예약': 'Book {name}', '{name} 예약 신청': 'Request {name}',

@@ -4,6 +4,7 @@
 //   예전 버전으로 넣은 기기는 고쳐요: 링크가 목록 페이지(SRC)면 기기별 페이지로,
 //   매뉴얼의 위치·구분·담당·출처 줄(앱에 이미 있거나 링크와 겹침)은 지우고 담당 연락처는 '문의' 한 줄로 (다른 내용은 그대로).
 //   '교육 필요'와 '예약 참고'는 아직 정한 적 없는 기기에만 넣어요 (관리자가 바꾼 건 그대로).
+// - 사진: 홈페이지 사진을 줄여 앱에 넣어 둔 img/equip/knu-{knu}.jpg (2개는 홈페이지에 사진 없음). 사진이 없는 기기에만 넣어요.
 // - 담당자는 비어 있고(앱에 가입한 뒤 기기 탭에서 지정), 모두 '승인 필요' · 예약 단위 30분으로 들어가요.
 // - 목록은 lab-manager js/equip.js 의 SHARED_EQUIPS '동인동 공동기기'를 그대로 옮김 (출처 https://med.knu.ac.kr/pages/sub.htm?nav_code=knu1670414710)
 //   매뉴얼 본문 = 설명 · 모델 · 이용 방법 · 문의. 이용 방법에 시간(09:00–17:00 등)이 있으면 예약 가능 시간대로 넣음.
@@ -13,6 +14,8 @@
 const CONTACT = '정지연 053-420-4989 jiyean98@knu.ac.kr';
 const SRC = 'https://med.knu.ac.kr/pages/sub.htm?nav_code=knu1670414710';
 const LINK = '의대 홈페이지 기기 정보';
+const NO_PHOTO = [554, 533]; // 홈페이지에 사진이 없는 기기 (Ultracentrifuge 2023, Dose calibrator)
+const photoPath = i => (NO_PHOTO.includes(i.knu) ? null : `img/equip/knu-${i.knu}.jpg`);
 const knuUrl = n => `${SRC}&mode=view&mv_data=${btoa(`idx=${n}&table=cs_booking_equipment`)}`;
 const ITEMS = [
   { name: 'NanoDrop (분광광도계)', desc: '1–2 µL만으로 핵산·단백질 농도와 순도(흡광도)를 재는 분광광도계', model: 'Nano Drop Ultra', maker: 'thermo', place: 'N402', knu: 576 },
@@ -110,21 +113,29 @@ function toEquip(i) {
 
 if (!window.cloud || !isAdmin()) {
   alert('총관리자로 로그인한 관리자 페이지(admin.html)에서 실행해 주세요.');
+} else if (!S.equipLoaded || !S.photosLoaded) {
+  alert('기기 목록을 아직 불러오는 중이에요. 잠시 뒤 다시 실행해 주세요.');
 } else {
   const have = new Map(S.equipment.map(e => [e.name, e]));
   const todo = ITEMS.filter(x => !have.has(x.name));
   const fix = ITEMS.filter(x => have.has(x.name)).map(x => [have.get(x.name), upgrade(x, have.get(x.name))]).filter(([, m]) => m);
+  const pics = ITEMS.filter(x => have.has(x.name) && photoPath(x) && !S.photos.has(have.get(x.name).id)); // 사진 없는 기존 기기
   const ask = [
     todo.length && `동인동 공동기기 ${todo.length}개를 넣어요.${todo.length < ITEMS.length ? ` (이미 있는 ${ITEMS.length - todo.length}개는 건너뜀)` : ''}\n담당자는 비어 있고, 모두 '승인 필요'로 들어가요.`,
     fix.length && `이미 있는 ${fix.length}개를 최신으로 고쳐요: 기기별 페이지 링크, 매뉴얼 정리(위치·구분·담당·출처 줄 → '문의' 한 줄), 교육 필요(${fix.filter(([, p]) => p.requiresTraining).length}개), 예약 참고.\n손으로 고친 내용은 그대로예요.`,
+    pics.length && `사진이 없는 ${pics.length}개에 의대 홈페이지 사진을 넣어요.`,
   ].filter(Boolean).join('\n\n');
   if (!ask) toast('동인동 공동기기는 이미 다 들어 있어요');
   else if (confirm(`${ask}\n\n진행할까요?`)) {
-    let order = Math.max(0, ...S.equipment.map(e => e.order ?? 0)), done = 0, fixed = 0;
+    let order = Math.max(0, ...S.equipment.map(e => e.order ?? 0)), done = 0, fixed = 0, pic = 0;
     try {
-      for (const x of todo) { await window.cloud.saveEquipment(null, { ...toEquip(x), order: ++order }); done++; }
+      for (const x of todo) {
+        const ref = await window.cloud.saveEquipment(null, { ...toEquip(x), order: ++order }); done++;
+        if (photoPath(x)) { await window.cloud.savePhoto(ref.id, photoPath(x)); pic++; }
+      }
       for (const [e, patch] of fix) { await window.cloud.saveEquipment(e.id, patch); fixed++; }
-      toast([done && `${done}개를 넣었어요`, fixed && `${fixed}개를 고쳤어요`].filter(Boolean).join(' · '));
-    } catch (e) { fail(`${done}개 넣고 ${fixed}개 고치다 멈췄어요`, e); }
+      for (const x of pics) { await window.cloud.savePhoto(have.get(x.name).id, photoPath(x)); pic++; }
+      toast([done && `${done}개를 넣었어요`, fixed && `${fixed}개를 고쳤어요`, pic && `사진 ${pic}개`].filter(Boolean).join(' · '));
+    } catch (e) { fail(`${done}개 넣고 ${fixed}개 고치고 사진 ${pic}개 넣다가 멈췄어요`, e); }
   }
 }

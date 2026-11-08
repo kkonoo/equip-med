@@ -17,6 +17,8 @@ const S = {
   labs: [],          // labs (order 순)
   equipment: [],     // equipment (order 순) — 승인된 사용자만 받음
   equipLoaded: false,
+  photos: new Map(), // 기기 사진: 기기 id → src (앱에 들어 있는 사진 경로 또는 올린 사진 data URL)
+  photosLoaded: false,
 };
 
 // ---------- 시간 (Asia/Seoul = UTC+9, 서머타임 없음) ----------
@@ -80,6 +82,7 @@ function statusLine(e) { // 점검·고장일 때 사유와 기간
   return `${STATUS[e.status]}${e.statusNote ? ` · ${e.statusNote}` : ''}${until}`;
 }
 const safeUrl = u => (/^https?:\/\//i.test(u || '') ? u : null);
+const photoOf = e => S.photos.get(e?.id) || null;
 // 위치의 첫 단어(호수·건물)가 같은 기기끼리 묶음 → [[공간, [기기…]], …]
 // 공간 순서: N호수(N107…) 오름차순 → 다른 호수(343호…) 오름차순 → 숫자 없는 공간 이름순 → 위치 없음. 공간 안은 기기 이름 abc순
 const placeOf = e => (e.location || '').trim().split(/\s+/)[0];

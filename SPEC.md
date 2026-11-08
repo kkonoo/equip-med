@@ -247,3 +247,4 @@ firebase-config.js는 null로 두고, 설정이 없을 때 안내 화면이 나�
 | 기기 묶음 · 순서 | 위치의 첫 단어(호수)로 묶음. N호수 오름차순 → 다른 호수 → 호수 없는 곳, 묶음 안은 이름 abc순. 관리자 목록도 같은 순서라 순서 버튼은 없앰 |
 | 교육 기록 | equipment.requiresTraining(교육 필요) + equipment.trained{uid: {name, labId, date, by, byName}}. 예약은 막지 않고 승인 화면에 경고. 표시는 그 기기 담당자 · 총관리자 (rules: 담당자가 고칠 수 있는 칸에 requiresTraining · trained 추가) |
 | 예약 참고 | equipment.rules.note (여러 줄 글). 예약 규칙 목록 끝에 한 줄씩 |
+| 기기 사진 | photos/{equipId}.src. Storage는 Blaze가 필요해서 Firestore에 둠: 올린 사진은 1024px JPEG data URL(800KB 미만), 동인동 사진은 앱 파일 img/equip/ 경로. 담당자 · 총관리자가 올리고 뺌, 기기를 지우면 같이 지움 |

@@ -11,11 +11,14 @@ function renderEquipment() {
       <h2 class="eq-place">📍 ${place ? esc(place) : t('위치 없음')} <span class="hint">${list.length}</span></h2>
       <div class="eq-grid">${list.map(e => `
     <button type="button" class="eq-card panel" data-id="${esc(e.id)}">
+      ${photoOf(e) ? `<img class="eq-photo" src="${esc(photoOf(e))}" alt="" loading="lazy">` : '<span class="eq-photo none" aria-hidden="true">📷</span>'}
+      <span class="eq-text">
       <span class="eq-head"><b>${esc(e.name)}</b>${statusChip(e)}</span>
       ${placeRest(e) ? `<span class="hint">${esc(placeRest(e))}</span>` : ''}
       <span class="hint">👤 ${managerNames(e).length ? esc(managerNames(e).join(', ')) : t('담당자 없음')}</span>
       ${statusLine(e) ? `<span class="hint warn-text">⚠ ${esc(statusLine(e))}</span>` : ''}
       <span class="chips"><span class="chip ${e.requiresApproval === false ? 'quiet' : 'warn'}">${e.requiresApproval === false ? t('바로 확정') : t('승인 필요')}</span>${trainChip(e)}</span>
+      </span>
     </button>`).join('')}</div>
     </section>`).join('');
   box.querySelectorAll('.eq-card').forEach(b => { b.onclick = () => openEquip(b.dataset.id); });
@@ -37,6 +40,7 @@ function openEquip(id) {
   $('equipDlg').innerHTML = `
     <form method="dialog" class="form">
       <h2 class="dlg-title">${esc(e.name)} ${statusChip(e)}</h2>
+      ${photoOf(e) ? `<img class="dlg-photo" src="${esc(photoOf(e))}" alt="${esc(e.name)}">` : ''}
       <p class="hint">${[e.location && `📍 ${esc(e.location)}`, `👤 ${managerNames(e).length ? esc(managerNames(e).join(', ')) : t('담당자 없음')}`].filter(Boolean).join(' · ')}</p>
       ${statusLine(e) ? `<p class="notice">⚠ ${esc(statusLine(e))}</p>` : ''}
       ${trainNotice(e)}

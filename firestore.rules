@@ -3,7 +3,8 @@ rules_version = '2';
 // 권한은 화면이 아니라 여기서 막아요. 로그인하지 않은 사람은 아무것도 읽지 못해요.
 //   users/{uid}           본인·총관리자만 읽음. 본인은 가입 신청(role pending)과 이름 수정만
 //   labs/{labId}          로그인한 모든 사람이 읽음(가입 폼), 쓰기는 총관리자
-//   equipment/{equipId}   승인된 사용자가 읽음. 총관리자는 전부, 담당자는 manual·rules·status·requiresApproval만
+//   equipment/{equipId}   승인된 사용자가 읽음. 총관리자는 전부, 담당자는 manual·rules·status·requiresApproval·교육만
+//   photos/{equipId}      기기 사진. 승인된 사용자가 읽음. 그 기기 담당자·총관리자가 올리고 지움
 //   bookings/{bookingId}  승인된 사용자가 읽음. 본인 예약 생성, 시작 전 본인 취소, 담당자·총관리자 승인·거절·취소
 //   logs/{bookingId}      본인·그 기기 담당자·총관리자가 읽음. 본인 예약이 승인되고 끝났을 때만 작성·수정
 // 예약끼리 시간이 겹치는지는 규칙으로 막을 수 없어요 (앱에서 저장 전에 확인, 담당자 화면에 겹침 경고).
@@ -59,6 +60,20 @@ service cloud.firestore {
       allow delete: if isAdmin();
       allow update: if validEquip(request.resource.data) && (isAdmin()
         || (isManager(equipId) && onlyChanged(['manual', 'rules', 'status', 'statusNote', 'statusUntil', 'requiresApproval', 'requiresTraining', 'trained', 'updatedAt'])));
+    }
+
+    // ---------- 기기 사진 (문서 id = 기기 id) ----------
+    // src = 앱에 들어 있는 사진 경로(img/equip/…jpg) 또는 앱에서 줄인 사진(data:image/…;base64,…, 800KB 미만)
+    function validPhoto(d) {
+      return d.keys().hasOnly(['src', 'by', 'updatedAt']) && d.by == request.auth.uid && d.updatedAt == request.time
+        && d.src is string && d.src.size() < 800000
+        && (d.src.matches('img/equip/[a-z0-9-]+[.]jpg') || d.src.matches('data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+'));
+    }
+    match /photos/{equipId} {
+      allow read: if approved();
+      allow create, update: if (isAdmin() || isManager(equipId))
+        && exists(/databases/$(database)/documents/equipment/$(equipId)) && validPhoto(request.resource.data);
+      allow delete: if isAdmin() || isManager(equipId);
     }
 
     // ---------- 예약 ----------

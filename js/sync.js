@@ -3,7 +3,8 @@
 // 컬렉션 (최상위, 여러 사람이 같이 봄 — 권한은 firestore.rules)
 //   users/{uid}            사용자 (가입 신청 = role 'pending')
 //   labs/{labId}           연구실
-//   equipment/{equipId}    기기 (담당자, 예약 규칙, 상태, 매뉴얼)
+//   equipment/{equipId}    기기 (담당자, 예약 규칙, 상태, 매뉴얼, 교육 기록)
+//   photos/{equipId}       기기 사진 { src } — 기기 목록과 따로 받아서 기기를 고쳐도 사진을 다시 받지 않음
 //   bookings/{bookingId}   예약
 //   logs/{bookingId}       사용일지 (예약 하나에 하나)
 // 다른 파일은 window.cloud 의 함수만 써요. 시간은 주고받을 때 ms 숫자 ↔ Timestamp 로 바꿈.
@@ -48,16 +49,16 @@ async function start() {
   });
   const logout = () => A.signOut(auth);
 
-  let unsubs = [], unsubEquip = null;
+  let unsubs = [], unsubEquip = null, unsubPhotos = null;
   const stop = () => {
-    unsubs.forEach(f => f()); unsubs = []; unsubEquip?.(); unsubEquip = null;
+    unsubs.forEach(f => f()); unsubs = []; unsubEquip?.(); unsubEquip = null; unsubPhotos?.(); unsubPhotos = null;
     live.forEach(f => f()); live.clear();
     window.resetFeeds?.(); // 화면 쪽 구독 상태도 처음으로
   };
 
   A.onAuthStateChanged(auth, u => {
     stop();
-    Object.assign(S, { user: u, me: null, meLoaded: false, labs: [], equipment: [], equipLoaded: false });
+    Object.assign(S, { user: u, me: null, meLoaded: false, labs: [], equipment: [], equipLoaded: false, photos: new Map(), photosLoaded: false });
     if (!u) return onAuth();
     onAuth();
     // 내 사용자 문서: 가입 신청·승인·비활성화가 바로 화면에 반영됨
@@ -67,8 +68,10 @@ async function start() {
       const ok = S.me && S.me.active !== false && (S.me.role === 'member' || S.me.role === 'admin');
       if (ok && !unsubEquip) {
         unsubEquip = watch(col('equipment'), list => { S.equipment = list.sort(byOrder); S.equipLoaded = true; onData(); }, '기기 목록');
+        unsubPhotos = watch(col('photos'), list => { S.photos = new Map(list.map(p => [p.id, p.src])); S.photosLoaded = true; onData(); }, '기기 사진');
       } else if (!ok && unsubEquip) {
         unsubEquip(); unsubEquip = null; S.equipment = []; S.equipLoaded = false;
+        unsubPhotos?.(); unsubPhotos = null; S.photos = new Map(); S.photosLoaded = false;
       }
       onAuth();
     }, e => fail(t('계정 정보를 불러오지 못했어요'), e)));
@@ -119,10 +122,10 @@ async function start() {
       ])));
       return { bookings: res.flatMap(([b]) => b.docs.map(plain)), logs: res.flatMap(([, l]) => l.docs.map(plain)) };
     },
-    // 전체 백업: 다섯 컬렉션을 그대로 (시간은 ISO 문자열로)
+    // 전체 백업: 여섯 컬렉션을 그대로 (시간은 ISO 문자열로, 올린 사진도 data URL 그대로)
     backup: async () => {
       const out = { app: 'equip-med', exportedAt: new Date().toISOString() };
-      for (const name of ['users', 'labs', 'equipment', 'bookings', 'logs']) {
+      for (const name of ['users', 'labs', 'equipment', 'photos', 'bookings', 'logs']) {
         out[name] = (await F.getDocs(col(name))).docs.map(d => {
           const o = { id: d.id, ...d.data() };
           for (const k of Object.keys(o)) if (o[k] instanceof F.Timestamp) o[k] = o[k].toDate().toISOString();
@@ -153,7 +156,14 @@ async function start() {
       if ('statusUntil' in d) d.statusUntil = ts(d.statusUntil);
       return id ? F.updateDoc(ref('equipment', id), d) : F.addDoc(col('equipment'), d);
     },
-    deleteEquipment: id => F.deleteDoc(ref('equipment', id)),
+    deleteEquipment: id => { // 사진도 같이 지움
+      const b = F.writeBatch(fs);
+      b.delete(ref('equipment', id)); b.delete(ref('photos', id));
+      return b.commit();
+    },
+    // 기기 사진 (담당자·총관리자): src = 앱에 들어 있는 사진 경로(img/equip/…) 또는 줄인 사진의 data URL
+    savePhoto: (equipId, src) => F.setDoc(ref('photos', equipId), { src, by: S.user.uid, updatedAt: now() }),
+    deletePhoto: equipId => F.deleteDoc(ref('photos', equipId)),
     // 교육 기록: equipment.trained.{uid} (담당자·총관리자). 날짜는 서울 기준 그날
     markTrained: (equipId, { uid, name, labId }) => F.updateDoc(ref('equipment', equipId),
       new F.FieldPath('trained', uid), { name, labId: labId || null, date: ymd(Date.now()), by: S.user.uid, byName: S.me.name },

@@ -241,6 +241,7 @@ function renderEquipAdmin(box) {
         ${isAdmin() ? '<button class="btn primary" id="addEquip">기기 추가</button>' : ''}</div>
       ${list.length ? list.map(e => `
         <div class="item" data-id="${esc(e.id)}">
+          ${photoOf(e) ? `<img class="item-thumb" src="${esc(photoOf(e))}" alt="" loading="lazy">` : '<span class="item-thumb none" aria-hidden="true">📷</span>'}
           <div class="item-main">
             <div class="item-title"><b>${esc(e.name)}</b> ${statusChip(e)} <span class="chip ${e.requiresApproval === false ? 'quiet' : 'warn'}">${e.requiresApproval === false ? '바로 확정' : '승인 필요'}</span></div>
             <div class="item-sub">${[e.location && `📍 ${esc(e.location)}`, `👤 ${managerNames(e).length ? esc(managerNames(e).join(', ')) : '담당자 없음'}`, e.requiresTraining && `🎓 교육 받은 사람 ${Object.keys(e.trained || {}).length}명`].filter(Boolean).join(' · ')}</div>
@@ -262,6 +263,18 @@ async function deleteEquip(e) {
 }
 
 const SLOTS = [10, 15, 20, 30, 60, 120];
+// 사진을 긴 쪽 max px의 JPEG data URL로 (Firestore 문서 1MB 제한 안으로). 사진 방향(EXIF)은 브라우저가 맞춤
+async function shrinkImage(file, max = 1024) {
+  let bmp;
+  try { bmp = await createImageBitmap(file); } catch (x) { throw Object.assign(x, { userMsg: '이 사진은 열 수 없어요. JPG나 PNG로 골라 주세요' }); }
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = Object.assign(document.createElement('canvas'), { width: Math.round(bmp.width * k), height: Math.round(bmp.height * k) });
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); // 투명한 PNG는 흰 바탕
+  g.drawImage(bmp, 0, 0, c.width, c.height);
+  for (const q of [0.82, 0.7, 0.55]) { const url = c.toDataURL('image/jpeg', q); if (url.length < 780000) return url; }
+  throw Object.assign(new Error('too big'), { userMsg: '사진이 너무 커요' });
+}
 function openEquipEdit(id) {
   const e = id ? equipById(id) : { name: '', location: '', managers: [], requiresApproval: true, status: 'ok', rules: { slotMinutes: 30 }, manual: { body: '', links: [] } };
   const admin = isAdmin(), r = rulesOf(e);
@@ -279,6 +292,7 @@ function openEquipEdit(id) {
             : esc(managerNames(e).join(', ') || '담당자 없음')}</div>
         </div>
       </fieldset>
+      ${id ? '<fieldset id="eqPhoto"></fieldset>' : ''}
       <fieldset>
         <legend>예약</legend>
         <label class="check"><input type="checkbox" name="requiresApproval"${e.requiresApproval !== false ? ' checked' : ''}> 담당자가 승인해야 확정 (끄면 예약하자마자 확정)</label>
@@ -330,6 +344,28 @@ function openEquipEdit(id) {
   $('eqAddLink').onclick = () => $('eqLinks').insertAdjacentHTML('beforeend', linkRow());
   $('eqLinks').onclick = ev => { if (ev.target.closest('.icon-btn')) ev.target.closest('.link-row').remove(); };
   $('eqClose').onclick = () => dlg.close();
+  // 사진: 고르면 줄여서 바로 저장 (위 칸들의 '저장'과 따로)
+  const renderPhoto = () => {
+    const src = photoOf(equipById(id) || e);
+    $('eqPhoto').innerHTML = `<legend>사진 <span class="hint">고르면 바로 저장돼요 · 긴 쪽 1024px로 줄여서 올려요</span></legend>
+      <div class="photo-edit">
+        ${src ? `<img class="item-thumb" src="${esc(src)}" alt="">` : '<span class="item-thumb none" aria-hidden="true">📷</span>'}
+        <label class="btn">${src ? '사진 바꾸기' : '사진 고르기'}<input type="file" accept="image/*" id="eqPhotoFile" hidden></label>
+        ${src ? '<button type="button" class="btn danger" id="eqPhotoDel">사진 빼기</button>' : ''}
+      </div>`;
+    $('eqPhotoFile').onchange = async ev => {
+      const file = ev.target.files[0]; if (!file) return;
+      try {
+        await window.cloud.savePhoto(id, await shrinkImage(file));
+        toast('사진을 올렸어요'); renderPhoto();
+      } catch (x) { if (x.userMsg) toast(x.userMsg, 3500); else fail('사진을 올리지 못했어요', x); }
+    };
+    $('eqPhotoDel')?.addEventListener('click', async () => {
+      if (!confirm('이 기기의 사진을 뺄까요?')) return;
+      try { await window.cloud.deletePhoto(id); toast('사진을 뺐어요'); renderPhoto(); } catch (x) { fail('사진을 빼지 못했어요', x); }
+    });
+  };
+  if (id) renderPhoto();
   // 교육 받은 사람: 누르면 바로 저장 (위 칸들의 '저장'과 따로)
   const renderTrained = () => {
     const cur = equipById(id) || e;
