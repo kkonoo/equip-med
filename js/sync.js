@@ -22,6 +22,7 @@ async function start() {
   ]);
   const app = initializeApp(firebaseConfig);
   const auth = A.getAuth(app);
+  auth.languageCode = LANG; // 인증·비밀번호 메일을 앱 언어로
   // 같은 주소(kkonoo.github.io)의 다른 앱과 기기 캐시를 같이 쓰므로 여러 탭 방식
   const fs = F.initializeFirestore(app, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) });
 
@@ -49,6 +50,22 @@ async function start() {
     if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') fail(t('로그인하지 못했어요'), e);
   });
   const logout = () => A.signOut(auth);
+  // 이메일·비밀번호 (구글이 아닌 메일). 인증 메일의 '계속' 버튼은 이 화면으로 (허용 안 된 주소면 그냥 보냄)
+  const verifyMail = user => A.sendEmailVerification(user, { url: location.href.split('#')[0] }).catch(() => A.sendEmailVerification(user));
+  const email = {
+    signIn: (e, pw) => A.signInWithEmailAndPassword(auth, e, pw),
+    create: async (e, pw) => { const c = await A.createUserWithEmailAndPassword(auth, e, pw); await verifyMail(c.user); },
+    resend: () => verifyMail(auth.currentUser),
+    reset: e => A.sendPasswordResetEmail(auth, e),
+    // 인증 링크를 누른 뒤: 사용자 정보와 토큰을 새로 받아야 Firestore 규칙에도 email_verified가 보임
+    recheck: async () => {
+      const u = auth.currentUser;
+      if (!u) return false;
+      await u.reload();
+      if (u.emailVerified) await u.getIdToken(true);
+      return u.emailVerified;
+    },
+  };
 
   let unsubs = [], unsubEquip = null, unsubPhotos = null;
   const stop = () => {
@@ -91,7 +108,7 @@ async function start() {
   };
 
   window.cloud = {
-    login, logout,
+    login, logout, email,
 
     // ---------- 사용자 ----------
     signup: ({ name, labId, labName }) => F.setDoc(ref('users', S.user.uid), {

@@ -50,12 +50,13 @@
 ## 처음 쓸 때
 
 1. [Firebase 콘솔](https://console.firebase.google.com)에서 새 프로젝트를 만들어요.
-2. **Authentication → 로그인 방법 → Google**을 켜고, **설정 → 승인된 도메인**에 `kkonoo.github.io`를 넣어요.
+2. **Authentication → 로그인 방법 → Google**과 **이메일/비밀번호**를 켜고(이메일 링크는 끔), **설정 → 승인된 도메인**에 `kkonoo.github.io`를 넣어요. 인증 · 비밀번호 메일은 앱 언어(한국어/English)로 가요.
 3. **Firestore Database**를 만들어요 (위치는 `asia-northeast3` 서울 추천).
 4. **Firestore → 규칙**에 [`firestore.rules`](firestore.rules) 내용을 그대로 붙여 넣고 게시해요.
 5. **Firestore → 색인 → 복합**에 아래 두 개를 만들어요 ([`firestore.indexes.json`](firestore.indexes.json)과 같아요). 안 만들면 그리드·통계가 안 열리고, 브라우저 콘솔 오류에 나오는 링크를 눌러도 만들 수 있어요.
-   - 컬렉션 `bookings`: `equipId` 오름차순 + `end` 오름차순 (예약 그리드, 겹침 확인, 관리자 승인 목록)
-   - 컬렉션 `bookings`: `equipId` 오름차순 + `start` 오름차순 (통계)
+   - 컬렉션 `bookings`: `equipId` 오름차순 + `end` 오름차순 (예약 그리드, 겹침 확인, 관리자 승인 목록) — [바로 만들기](https://console.firebase.google.com/v1/r/project/equip-knumed/firestore/indexes?create_composite=Ck1wcm9qZWN0cy9lcXVpcC1rbnVtZWQvZGF0YWJhc2VzLyhkZWZhdWx0KS9jb2xsZWN0aW9uR3JvdXBzL2Jvb2tpbmdzL2luZGV4ZXMvXxABGgsKB2VxdWlwSWQQARoHCgNlbmQQARoMCghfX25hbWVfXxAB)
+   - 컬렉션 `bookings`: `equipId` 오름차순 + `start` 오름차순 (통계) — [바로 만들기](https://console.firebase.google.com/v1/r/project/equip-knumed/firestore/indexes?create_composite=Ck1wcm9qZWN0cy9lcXVpcC1rbnVtZWQvZGF0YWJhc2VzLyhkZWZhdWx0KS9jb2xsZWN0aW9uR3JvdXBzL2Jvb2tpbmdzL2luZGV4ZXMvXxABGgsKB2VxdWlwSWQQARoJCgVzdGFydBABGgwKCF9fbmFtZV9fEAE=)
+   - 쿼리 범위는 **컬렉션**(컬렉션 그룹 아님)이에요. 만든 뒤 '사용 설정됨'이 될 때까지 몇 분 걸리고, 그동안은 예약 화면에 '데이터 색인이 아직 없거나 만드는 중' 안내가 떠요.
 6. **프로젝트 설정 → 내 앱 → 웹 앱 추가**에서 나온 `firebaseConfig` 값을 [`js/firebase-config.js`](js/firebase-config.js)에 넣고 main에 올려요. 값이 `null`이면 '설정이 필요해요' 안내만 보여요. (이 값은 공개돼도 괜찮아요. 데이터 보호는 보안 규칙이 해요.)
 7. 앱에서 구글로 로그인해 **가입 신청**을 해요. 그다음 Firebase 콘솔 **Firestore → 데이터 → `users` → 내 문서**에서 `role`을 `admin`으로 바꾸면 첫 총관리자가 돼요.
 8. 관리자 페이지에서 **연구실**을 추가하고, **기기**를 추가해 담당자 · 예약 규칙 · 매뉴얼을 넣어요. 이후 가입 신청은 가입 승인 탭에서 처리해요.
@@ -80,6 +81,11 @@
 
 - `drive-upload.gs`를 고친 뒤에는 **배포 → 배포 관리 → ✎ → 버전: 새 버전 → 배포**를 해요 (주소는 그대로).
 - 웹 앱 주소는 아무나 부를 수 있지만, 올리기는 앱의 총관리자 · 그 기기 담당자 토큰이 있어야 시작돼요.
+
+## 로그인
+
+- **Google로 로그인**: 학교 지메일, 개인 구글 계정.
+- **구글 계정이 아닌 메일로 (학교 메일 등)**: 메일과 비밀번호로 계정을 만들면 그 메일로 인증 링크가 가요. 링크를 누른 뒤 '인증했어요'를 눌러야 가입 신청을 할 수 있어요 (남의 메일로 가입하지 못하게, 규칙에서도 확인). 비밀번호를 잊으면 '비밀번호를 잊었어요'로 다시 정해요. 메일이 안 오면 스팸함을 봐요.
 
 ## 데이터는 어디에
 

@@ -97,9 +97,11 @@ function byPlace(list) {
 }
 
 let toastTimer;
-function toast(text, ms = 2200) {
+function toast(text, ms = 2200, link = null) { // link = { href, label } 이면 누를 수 있는 링크를 붙임
   const t = $('toast');
   t.textContent = text;
+  t.classList.toggle('has-link', !!link);
+  if (link) t.append(' ', Object.assign(document.createElement('a'), { href: link.href, target: '_blank', rel: 'noopener', textContent: link.label }));
   // popover = 맨 위 층: 열린 대화상자(dialog)보다 위에 보이게 다시 띄움
   try { t.hidePopover(); t.showPopover(); } catch { /* popover 없는 브라우저: 그냥 아래에 보임 */ }
   t.classList.add('show');
@@ -109,7 +111,13 @@ function toast(text, ms = 2200) {
 // 저장 실패 등: 무엇이 안 됐는지 + 원인 코드
 function fail(what, e) {
   console.error(what, e);
-  toast(e?.code === 'permission-denied' ? t('{what}: 권한이 없어요', { what }) : `${what}: ${e?.message || e}`, 3500);
+  if (e?.code === 'permission-denied') return toast(t('{what}: 권한이 없어요', { what }), 3500);
+  // Firestore 색인(index)이 없거나 만드는 중: 긴 영어 안내 대신 짧게, 만드는 링크는 총관리자에게만
+  if (e?.code === 'failed-precondition' && /index/i.test(e?.message || '')) {
+    const url = (e.message.match(/https:\/\/console\.firebase\.google\.com\/\S+/) || [])[0];
+    return toast(t('{what}: 데이터 색인(index)이 아직 없거나 만드는 중이에요. 몇 분 뒤 다시 해 주세요', { what }), 9000, isAdmin() && url ? { href: url, label: t('색인 만들기') } : null);
+  }
+  toast(`${what}: ${e?.message || e}`, 3500);
 }
 
 // ---------- 테마·글씨 크기 ----------
@@ -126,6 +134,7 @@ let shown = null; // 지금 보이는 gate 이름 또는 'app'
 function onAuth() {
   showAccount();
   if (!S.user) return gate('login');
+  if (!S.user.emailVerified) return gate('verify'); // 이메일·비밀번호 계정만 해당 (구글 계정은 늘 인증됨)
   if (!S.meLoaded) return gate('loading');
   if (!S.me) return gate('signup');
   if (S.me.active === false) return gate('inactive');
@@ -193,7 +202,23 @@ const GATES = {
     <h2>${t('공동기기')}@KNUmed</h2>
     <p>${t('연구실이 같이 쓰는 기기를 예약하고 매뉴얼을 볼 수 있어요.')}<br>${t('Google 계정으로 로그인해 주세요.')}</p>
     <button class="btn primary" id="gateLogin">${t('Google로 로그인')}</button>
+    <details class="email-login">
+      <summary>${t('구글 계정이 아닌 메일로 (학교 메일 등)')}</summary>
+      <form id="emailForm" class="form" novalidate>
+        <label>${t('이메일')}<input name="email" type="email" autocomplete="email" required></label>
+        <label>${t('비밀번호')}<input name="pw" type="password" autocomplete="current-password" required></label>
+        <p class="err" id="emailErr"></p>
+        <div class="actions"><button type="button" class="btn" id="emailCreate">${t('계정 만들기')}</button><button class="btn primary">${t('로그인')}</button></div>
+        <p class="hint">${t('처음이면 메일과 비밀번호(6자 이상)를 적고 계정 만들기를 눌러요. 학교 지메일·개인 구글 계정은 위 Google로 로그인을 써요.')}</p>
+        <button type="button" class="link-btn" id="emailReset">${t('비밀번호를 잊었어요')}</button>
+      </form>
+    </details>
     ${langSeg()}`,
+  // 이메일·비밀번호로 만든 계정: 메일의 인증 링크를 눌러야 가입 신청 (남의 메일로 가입 못 하게)
+  verify: () => `
+    <h2>${t('메일 인증이 필요해요')}</h2>
+    <p>${t('{email}로 인증 메일을 보냈어요. 메일의 링크를 누른 뒤 인증했어요를 눌러 주세요. 메일이 안 보이면 스팸함도 확인해 주세요.', { email: `<b>${esc(S.user?.email || '')}</b>` })}</p>
+    <div class="actions"><button class="btn" id="gateLogout">${t('로그아웃')}</button><button class="btn" id="verifyResend">${t('메일 다시 보내기')}</button><button class="btn primary" id="verifyDone">${t('인증했어요')}</button></div>`,
   signup: () => `
     <h2>${t('가입 신청')}</h2>
     <p>${t('처음 오셨네요. 이름과 소속 연구실을 적어 주세요. 총관리자가 승인하면 쓸 수 있어요.')}</p>
@@ -248,10 +273,20 @@ function gate(name) {
     if ([...sel.options].some(o => o.value === v)) sel.value = v;
     return;
   }
+  // 인증 화면은 한 번만 그림 (다시 확인할 때 계정 정보를 새로 받으면서 화면이 또 그려지지 않게)
+  if (shown === name && name === 'verify') return;
   shown = name;
   $('gate').innerHTML = `<div class="panel gate-card">${GATES[name]()}</div>`;
   $('gateLogin')?.addEventListener('click', () => window.cloud?.login());
   $('gateLogout')?.addEventListener('click', () => window.cloud?.logout());
+  bindEmailLogin();
+  if (name === 'verify') {
+    $('verifyDone').onclick = () => recheckVerified(true);
+    $('verifyResend').onclick = async () => {
+      try { await window.cloud.email.resend(); toast(t('인증 메일을 다시 보냈어요')); } catch (e) { toast(emailError(e), 3500); }
+    };
+    recheckVerified(false); // 다른 탭에서 이미 인증했을 수도
+  }
   const f = $('signupForm');
   if (f) {
     f.name.value = S.user?.displayName || '';
@@ -266,6 +301,43 @@ function gate(name) {
     };
   }
 }
+
+// ---------- 이메일·비밀번호 로그인 (구글이 아닌 메일) ----------
+function emailError(e) {
+  return ({
+    'auth/invalid-credential': t('이메일이나 비밀번호가 맞지 않아요'), 'auth/wrong-password': t('이메일이나 비밀번호가 맞지 않아요'), 'auth/user-not-found': t('이메일이나 비밀번호가 맞지 않아요'),
+    'auth/email-already-in-use': t('이미 계정이 있는 메일이에요. 로그인하거나 비밀번호를 잊었어요를 눌러요'),
+    'auth/weak-password': t('비밀번호는 6자 이상으로 해 주세요'), 'auth/invalid-email': t('메일 주소를 확인해 주세요'), 'auth/missing-password': t('비밀번호를 적어 주세요'),
+    'auth/too-many-requests': t('시도가 너무 많아요. 잠시 뒤 다시 해 주세요'), 'auth/network-request-failed': t('인터넷 연결을 확인해 주세요'),
+    'auth/operation-not-allowed': t('이메일 로그인이 아직 켜져 있지 않아요. 총관리자에게 알려 주세요'),
+  })[e?.code] || `${t('하지 못했어요')}: ${e?.message || e}`;
+}
+function bindEmailLogin() {
+  const f = $('emailForm');
+  if (!f) return;
+  const err = m => { $('emailErr').textContent = m; };
+  const run = async (fn, busy) => {
+    err('');
+    const email = f.email.value.trim(), pw = f.pw.value;
+    if (!email) return err(t('메일 주소를 적어 주세요'));
+    busy.disabled = true;
+    try { await fn(email, pw); } catch (e) { err(emailError(e)); } finally { busy.disabled = false; }
+  };
+  f.onsubmit = ev => { ev.preventDefault(); run((e, p) => window.cloud.email.signIn(e, p), f.querySelector('.btn.primary')); };
+  $('emailCreate').onclick = () => run((e, p) => window.cloud.email.create(e, p), $('emailCreate'));
+  $('emailReset').onclick = () => run(async e => {
+    await window.cloud.email.reset(e);
+    toast(t('비밀번호를 다시 정하는 메일을 보냈어요 (계정이 있는 메일이면)'), 4000);
+  }, $('emailReset'));
+}
+// 메일 인증을 했는지 다시 확인 (인증 링크는 다른 탭·폰 메일 앱에서 누르므로). 됐으면 가입 신청 화면으로
+async function recheckVerified(loud) {
+  try {
+    if (await window.cloud?.email.recheck()) return onAuth();
+    if (loud) toast(t('아직 인증되지 않았어요. 메일의 링크를 눌러 주세요'), 3500);
+  } catch (e) { if (loud) toast(emailError(e), 3500); }
+}
+window.addEventListener('focus', () => { if (shown === 'verify') recheckVerified(false); });
 
 // ---------- 위 오른쪽 계정 버튼 + 설정 창 ----------
 function showAccount() {

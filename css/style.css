@@ -125,11 +125,14 @@ dialog h2 + .hint { margin-top: 0; line-height: 1.5; }
 /* ---------- 토스트 ---------- */
 .toast {
   position: fixed; left: 50%; bottom: calc(32px + env(safe-area-inset-bottom)); z-index: 30;
-  transform: translateX(-50%); padding: 10px 18px; border-radius: 999px;
+  transform: translateX(-50%); padding: 10px 18px; border-radius: 22px;
   background: var(--text); color: var(--bg); font-size: calc(14px * var(--fs));
-  white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .2s;
+  width: max-content; max-width: min(560px, calc(100vw - 32px)); text-align: center; /* 긴 글은 줄바꿈 */
+  opacity: 0; pointer-events: none; transition: opacity .2s;
 }
 .toast.show { opacity: 1; }
+.toast.has-link { pointer-events: auto; }
+.toast a { color: inherit; font-weight: 600; text-decoration: underline; }
 .toast[popover] { inset: auto auto calc(32px + env(safe-area-inset-bottom)) 50%; margin: 0; border: none; overflow: visible; }
 
 /* ---------- 터치 기기: hover 전용 도구도 보이게 ---------- */
@@ -200,6 +203,10 @@ main { flex: 1; display: flex; flex-direction: column; padding: 0 24px 32px; min
 .gate-card p { margin: 0 0 14px; }
 .gate-card .steps { margin: 0 0 14px; padding-left: 20px; }
 .gate-card .form { margin-top: 6px; }
+.email-login { margin-top: 16px; }
+.email-login summary { cursor: pointer; color: var(--muted); font-size: calc(13px * var(--fs)); }
+.email-login .form { text-align: left; }
+.link-btn { background: none; border: 0; padding: 0; font: inherit; font-size: calc(13px * var(--fs)); color: var(--accent); text-decoration: underline; cursor: pointer; align-self: flex-start; }
 
 /* ---------- 설정 창 ---------- */
 #settingsDlg .hint { margin: 0; line-height: 1.5; }

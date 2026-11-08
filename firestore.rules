@@ -32,6 +32,7 @@ service cloud.firestore {
         && request.resource.data.role == 'pending'
         && request.resource.data.active == true
         && request.resource.data.email == request.auth.token.email
+        && request.auth.token.email_verified == true // 이메일·비밀번호 계정은 메일 인증 뒤에만 (구글 계정은 늘 인증됨)
         && okName(request.resource.data.name)
         && request.resource.data.labName is string && request.resource.data.labName.size() <= 60
         && (request.resource.data.labId == null || exists(/databases/$(database)/documents/labs/$(request.resource.data.labId)))
