@@ -5,6 +5,8 @@
 // 누가 올릴 수 있나: 앱의 총관리자, 그 기기 담당자. 앱 로그인 토큰(Firebase ID 토큰)으로 Firestore를 읽어 확인해요
 //   (토큰이 가짜거나 만료됐으면 Firestore가 거절하고, firestore.rules가 본인 문서만 읽게 해서 남의 uid로 속일 수 없음).
 // 큰 파일: 앱이 16MB씩 나눠 보내면 드라이브의 이어 올리기(resumable upload) 자리에 차례로 붙여요.
+// 휴지통: 앱에서 올린 파일의 링크를 빼고 저장하면 그 파일을 드라이브 휴지통으로 (30일 안에 되살릴 수 있음).
+//   '#공동기기' 폴더 안에 있고 그 기기로 올린 파일만, 그 기기 매뉴얼에 아직 붙어 있으면 거절.
 // 이 파일은 앱이 쓰지 않아요 (Apps Script 편집기에 붙여 넣는 원본).
 
 var FOLDER_ID = '1Ioxj3epbd6YKuncnOK35EFSJWDfLAWq4'; // 드라이브 '#공동기기' 폴더 (주소의 folders/ 뒤)
@@ -18,6 +20,7 @@ function doPost(e) {
     var b = JSON.parse(e.postData.contents);
     if (b.action === 'start') return json_(start_(b));
     if (b.action === 'chunk') return json_(chunk_(b));
+    if (b.action === 'trash') return json_(trash_(b));
     throw new Error('알 수 없는 요청이에요');
   } catch (err) {
     return json_({ ok: false, error: (err && err.message) || String(err) });
@@ -36,7 +39,7 @@ function start_(b) {
     method: 'post',
     contentType: 'application/json; charset=UTF-8',
     headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), 'X-Upload-Content-Type': mimeType, 'X-Upload-Content-Length': String(size) },
-    payload: JSON.stringify({ name: name, parents: [folder.getId()], description: '공동기기@KNUmed 매뉴얼 · ' + who.equipName }),
+    payload: JSON.stringify({ name: name, parents: [folder.getId()], description: '공동기기@KNUmed 매뉴얼 · ' + who.equipName + ' · equip:' + b.equipId }),
     muteHttpExceptions: true,
     followRedirects: false,
   });
@@ -73,6 +76,35 @@ function chunk_(b) {
   return { ok: true, done: true, file: { id: f.id, name: f.name, mimeType: f.mimeType, url: 'https://drive.google.com/file/d/' + f.id + '/view' } };
 }
 
+// 3) 휴지통: 앱에서 올린 파일만 (그 기기로 올렸고 '#공동기기' 폴더 안). 다른 파일이면 그대로 두고 trashed: false
+function trash_(b) {
+  var who = checkUser_(b.idToken, b.equipId);
+  var id = String(b.fileId || '');
+  if (!/^[A-Za-z0-9_-]{10,}$/.test(id)) throw new Error('파일 번호가 맞지 않아요');
+  if (linkedIn_(who.eq, id)) throw new Error('아직 이 기기 매뉴얼에 붙어 있는 파일이에요');
+  var f;
+  try { f = DriveApp.getFileById(id); } catch (x) { return { ok: true, trashed: false }; } // 이미 없음
+  if (f.isTrashed() || !ours_(f, b.equipId, who.equipName)) return { ok: true, trashed: false };
+  f.setTrashed(true);
+  return { ok: true, trashed: true };
+}
+// '#공동기기/기기 폴더' 안에 있고, 설명에 이 기기 번호가 있거나(새로 올린 파일) 폴더 이름이 지금 기기 이름(예전에 올린 파일)
+function ours_(f, equipId, equipName) {
+  var mine = (f.getDescription() || '').indexOf('equip:' + equipId) >= 0;
+  var ps = f.getParents();
+  while (ps.hasNext()) {
+    var p = ps.next(), gs = p.getParents();
+    while (gs.hasNext()) if (gs.next().getId() === FOLDER_ID && (mine || p.getName() === folderName_(equipName))) return true;
+  }
+  return false;
+}
+// Firestore 기기 문서의 매뉴얼 링크에 이 파일이 있는지
+function linkedIn_(eq, id) {
+  var m = (eq.fields || {}).manual, lf = m && m.mapValue && m.mapValue.fields && m.mapValue.fields.links;
+  var vs = (lf && lf.arrayValue && lf.arrayValue.values) || [];
+  return vs.some(function (v) { var u = v.mapValue && v.mapValue.fields && v.mapValue.fields.url; return !!u && String(u.stringValue).indexOf(id) >= 0; });
+}
+
 // 앱 로그인 토큰으로 Firestore의 내 사용자 문서와 기기 문서를 읽어 권한 확인
 function checkUser_(idToken, equipId) {
   if (!idToken || !equipId) throw new Error('로그인 정보가 없어요. 다시 로그인해 주세요');
@@ -86,8 +118,8 @@ function checkUser_(idToken, equipId) {
   var role = field_(me, 'role'), active = field_(me, 'active') !== false;
   var mf = (eq.fields || {}).managers, managers = (mf && mf.arrayValue && mf.arrayValue.values) || [];
   var isManager = managers.some(function (v) { return v.stringValue === uid; });
-  if (!active || !(role === 'admin' || (role === 'member' && isManager))) throw new Error('총관리자나 이 기기 담당자만 올릴 수 있어요');
-  return { uid: uid, equipName: field_(eq, 'name') || equipId };
+  if (!active || !(role === 'admin' || (role === 'member' && isManager))) throw new Error('총관리자나 이 기기 담당자만 할 수 있어요');
+  return { uid: uid, equipName: field_(eq, 'name') || equipId, eq: eq };
 }
 function fsGet_(path, idToken) {
   var r = UrlFetchApp.fetch('https://firestore.googleapis.com/v1/projects/' + PROJECT_ID + '/databases/(default)/documents/' + path, {
@@ -102,8 +134,9 @@ function field_(doc, k) {
 }
 
 // '#공동기기' 안의 기기 이름 폴더 (없으면 만듦, 동시에 두 개 생기지 않게 잠금)
+function folderName_(equipName) { return String(equipName).replace(/[\\/]/g, ' ').slice(0, 100); }
 function equipFolder_(equipName) {
-  var name = String(equipName).replace(/[\\/]/g, ' ').slice(0, 100);
+  var name = folderName_(equipName);
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {

@@ -80,6 +80,16 @@ async function start() {
     unsubs.push(watch(col('labs'), list => { S.labs = list.sort(byOrder); onData(); }, '연구실 목록'));
   });
 
+  // 매뉴얼 파일 웹 앱(Apps Script) 부르기: text/plain이라 CORS 사전 요청 없음. 실패하면 userMsg에 보여 줄 문구
+  const drivePost = async body => {
+    let res;
+    try { res = await fetch(CFG.manualUploadUrl, { method: 'POST', body: JSON.stringify(body) }); }
+    catch (e) { throw Object.assign(e, { userMsg: '올리기 서버에 연결하지 못했어요. 인터넷을 확인하고 다시 해 주세요' }); }
+    const j = await res.json().catch(() => null);
+    if (!j?.ok) throw Object.assign(new Error(j?.error || `HTTP ${res.status}`), { userMsg: j?.error || '드라이브 작업을 하지 못했어요' });
+    return j;
+  };
+
   window.cloud = {
     login, logout,
 
@@ -166,14 +176,7 @@ async function start() {
     // 16MB씩 나눠 보냄 (웹 앱이 한 번에 받는 크기 제한 안). 돌려주는 것: { id, name, mimeType, url }
     canUpload: !!CFG.manualUploadUrl,
     uploadManual: async (equipId, file, onProgress) => {
-      const post = async body => {
-        let res;
-        try { res = await fetch(CFG.manualUploadUrl, { method: 'POST', body: JSON.stringify(body) }); } // text/plain이라 CORS 사전 요청 없음
-        catch (e) { throw Object.assign(e, { userMsg: '올리기 서버에 연결하지 못했어요. 인터넷을 확인하고 다시 올려 주세요' }); }
-        const j = await res.json().catch(() => null);
-        if (!j?.ok) throw Object.assign(new Error(j?.error || `HTTP ${res.status}`), { userMsg: j?.error || '올리지 못했어요' });
-        return j;
-      };
+      const post = drivePost;
       const b64 = blob => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => no(r.error); r.readAsDataURL(blob); });
       const { uploadId } = await post({ action: 'start', idToken: await auth.currentUser.getIdToken(), equipId, name: file.name, mimeType: file.type || 'application/octet-stream', size: file.size });
       const CHUNK = 16 * 1024 * 1024; // 256KB의 배수여야 함 (드라이브 이어 올리기 규칙)
@@ -185,6 +188,8 @@ async function start() {
       if (!last?.done) throw Object.assign(new Error('not finished'), { userMsg: '끝까지 올리지 못했어요. 다시 올려 주세요' });
       return last.file;
     },
+    // 앱에서 올린 매뉴얼 파일을 드라이브 휴지통으로 (링크를 빼고 저장한 뒤). 돌려주는 것: 휴지통으로 갔는지
+    trashManual: async (equipId, fileId) => (await drivePost({ action: 'trash', idToken: await auth.currentUser.getIdToken(), equipId, fileId })).trashed,
 
     // 기기 사진 (담당자·총관리자): src = 앱에 들어 있는 사진 경로(img/equip/…) 또는 줄인 사진의 data URL
     savePhoto: (equipId, src) => F.setDoc(ref('photos', equipId), { src, by: S.user.uid, updatedAt: now() }),

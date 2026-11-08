@@ -263,6 +263,8 @@ async function deleteEquip(e) {
 }
 
 const SLOTS = [10, 15, 20, 30, 60, 120];
+// 구글 드라이브 파일 링크의 파일 번호 (…/file/d/{id}/…), 아니면 null
+const driveFileId = url => /^https:\/\/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]{10,})/.exec(url || '')?.[1] || null;
 // 사진을 긴 쪽 max px의 JPEG data URL로 (Firestore 문서 1MB 제한 안으로). 사진 방향(EXIF)은 브라우저가 맞춤
 async function shrinkImage(file, max = 1024) {
   let bmp;
@@ -356,7 +358,7 @@ function openEquipEdit(id) {
     st.textContent = `올리는 중… 0% · ${file.name}`;
     try {
       const f = await window.cloud.uploadManual(id, file, p => { st.textContent = `올리는 중… ${Math.round(p * 100)}% · ${file.name}`; });
-      const link = { title: file.name.replace(/\.[^.]+$/, '').slice(0, 60), url: f.url, type: f.mimeType || file.type || '' };
+      const link = { title: file.name.replace(/\.[^.]+$/, '').slice(0, 60), url: f.url, type: f.mimeType || file.type || 'application/octet-stream' }; // type이 있으면 '앱에서 올린 파일' (뺄 때 휴지통)
       const cur = equipById(id) || e;
       await window.cloud.saveEquipment(id, { manual: { body: cur.manual?.body || '', links: [...(cur.manual?.links || []), link] } });
       $('eqLinks')?.insertAdjacentHTML('beforeend', linkRow(link));
@@ -449,11 +451,24 @@ function openEquipEdit(id) {
       });
       if (!id) data.order = Math.max(0, ...S.equipment.map(x => x.order ?? 0)) + 1;
     }
+    // 뺀 링크 중 앱에서 올린 드라이브 파일(type 있음)은 저장한 뒤 휴지통으로. 다른 기기에도 붙어 있으면 그대로 둠
+    const keep = new Set(links.map(l => l.url));
+    const elsewhere = fid => S.equipment.some(x => x.id !== id && (x.manual?.links || []).some(l => driveFileId(l.url) === fid));
+    const trash = !id || !window.cloud.canUpload ? [] : (equipById(id)?.manual?.links || [])
+      .filter(l => l.type && !keep.has(l.url) && driveFileId(l.url) && !elsewhere(driveFileId(l.url)));
+    if (trash.length && !confirm(`뺀 링크 중 앱에서 올린 파일 ${trash.length}개(${trash.map(l => l.title || '제목 없음').join(', ')})를 내 드라이브 휴지통으로 보내요. 휴지통에서 30일 안에 되살릴 수 있어요.\n저장할까요?`)) return;
     try {
       await window.cloud.saveEquipment(id, data);
       dlg.close();
       toast(id ? '저장했어요' : '기기를 추가했어요');
-    } catch (x) { fail('저장하지 못했어요', x); }
+    } catch (x) { return fail('저장하지 못했어요', x); }
+    if (!trash.length) return;
+    let n = 0;
+    for (const l of trash) {
+      try { if (await window.cloud.trashManual(id, driveFileId(l.url))) n++; }
+      catch (x) { return x.userMsg ? toast(`저장했지만 '${l.title}' 파일을 휴지통으로 보내지 못했어요: ${x.userMsg}`, 5000) : fail('휴지통으로 보내지 못했어요', x); }
+    }
+    toast(n ? `저장하고, 올린 파일 ${n}개를 드라이브 휴지통으로 보냈어요` : '저장했어요 (드라이브 파일은 그대로예요)', 3500);
   };
   dlg.showModal();
 }

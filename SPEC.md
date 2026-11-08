@@ -247,5 +247,5 @@ firebase-config.js는 null로 두고, 설정이 없을 때 안내 화면이 나�
 | 기기 묶음 · 순서 | 위치의 첫 단어(호수)로 묶음. N호수 오름차순 → 다른 호수 → 호수 없는 곳, 묶음 안은 이름 abc순. 관리자 목록도 같은 순서라 순서 버튼은 없앰 |
 | 교육 기록 | equipment.requiresTraining(교육 필요) + equipment.trained{uid: {name, labId, date, by, byName}}. 예약은 막지 않고 승인 화면에 경고. 표시는 그 기기 담당자 · 총관리자 (rules: 담당자가 고칠 수 있는 칸에 requiresTraining · trained 추가) |
 | 예약 참고 | equipment.rules.note (여러 줄 글). 예약 규칙 목록 끝에 한 줄씩 |
-| 매뉴얼 파일 올리기 | Apps Script 웹 앱(tools/drive-upload.gs, 실행 사용자 = 드라이브 주인) → 드라이브 '#공동기기/기기 이름'. 앱 로그인 토큰으로 Firestore 읽어 총관리자 · 담당자 확인. 16MB씩 이어 올리기(웹 앱 한 번에 ~50MB 제한). 링크에 type(파일 종류) 추가, 사용자 화면에 📄 · 🎬 표시 |
+| 매뉴얼 파일 올리기 | Apps Script 웹 앱(tools/drive-upload.gs, 실행 사용자 = 드라이브 주인) → 드라이브 '#공동기기/기기 이름'. 앱 로그인 토큰으로 Firestore 읽어 총관리자 · 담당자 확인. 16MB씩 이어 올리기(웹 앱 한 번에 ~50MB 제한). 링크에 type(파일 종류) 추가, 사용자 화면에 📄 · 🎬 표시. 앱으로 올린 파일(type 있음)의 링크를 빼고 저장하면 확인 뒤 드라이브 휴지통으로 (웹 앱이 '#공동기기' 안 · 그 기기로 올린 파일(설명의 equip:id 또는 기기 이름 폴더) · 매뉴얼에 더는 없음을 확인. 다른 기기에도 붙은 파일은 앱이 건너뜀) |
 | 기기 사진 | photos/{equipId}.src. Storage는 Blaze가 필요해서 Firestore에 둠: 올린 사진은 1024px JPEG data URL(800KB 미만), 동인동 사진은 앱 파일 img/equip/ 경로. 담당자 · 총관리자가 올리고 뺌, 기기를 지우면 같이 지움 |
