@@ -155,6 +155,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .form label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); }
 .form .row { display: flex; gap: 8px; align-items: center; }
 .form .row > input, .form .row > select { flex: 1; }
+.tr-row > span { flex: 1; min-width: 0; }
 .form .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .form fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px 14px; margin: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .form legend { padding: 0 6px; font-weight: 600; font-size: calc(13px * var(--fs)); }

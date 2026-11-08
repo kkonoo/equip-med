@@ -15,7 +15,8 @@ async function labIdFor(name) {
   const key = name.trim().toLowerCase();
   return S.labs.find(l => l.name.trim().toLowerCase() === key)?.id || window.cloud.addLab(name.trim());
 }
-const scopeEquip = () => (isAdmin() ? S.equipment : myEquip()); // 볼 수 있는 기기
+// 볼 수 있는 기기 — 사용자 화면과 같은 순서 (공간별, 공간 안은 이름순). 기기 탭·예약 승인·사용일지·통계가 모두 이 순서
+const scopeEquip = () => byPlace(isAdmin() ? S.equipment : myEquip()).flatMap(([, list]) => list);
 let adminShow = null, deferred = false;
 
 window.appStart = () => {
@@ -92,11 +93,15 @@ function renderApprovals(box) {
     const e = equipById(b.equipId), d = e && downUntil(e);
     return d != null && b.start < d ? `<div class="item-warn">⚠ ${esc(statusLine(e))}</div>` : '';
   };
+  // 교육이 필요한 기기인데 신청한 사람의 교육 기록이 없으면: 경고 + '교육 완료' 버튼 (예약은 막지 않음)
+  const untrained = b => { const e = equipById(b.equipId); return e?.requiresTraining && !trainedOf(e, b.uid); };
+  const trainWarn = b => (untrained(b) ? '<div class="item-warn">🎓 교육 기록이 없어요. 교육했으면 교육 완료로 표시해요.</div>' : '');
+  const trainBtn = b => (untrained(b) ? '<button class="btn" data-act="train">🎓 교육 완료</button>' : '');
 
   box.innerHTML = `
     <section class="panel">
       <div class="panel-head"><h2>승인 대기</h2><span class="hint">${pending.length}건 · 같은 시간에 겹치는 신청은 경고가 떠요</span></div>
-      ${pending.length ? pending.map(b => card(b, `<button class="btn" data-act="reject">거절</button><button class="btn primary" data-act="approve">승인</button>`, clashWarn(b) + downWarn(b))).join('') : '<p class="empty">승인을 기다리는 신청이 없어요.</p>'}
+      ${pending.length ? pending.map(b => card(b, `${trainBtn(b)}<button class="btn" data-act="reject">거절</button><button class="btn primary" data-act="approve">승인</button>`, clashWarn(b) + downWarn(b) + trainWarn(b))).join('') : '<p class="empty">승인을 기다리는 신청이 없어요.</p>'}
     </section>
     ${downHits.length ? `
     <section class="panel warn-panel">
@@ -107,7 +112,7 @@ function renderApprovals(box) {
       <div class="panel-head"><h2>다가오는 예약</h2>
         <select id="upEquip" aria-label="기기"><option value="">모든 기기</option>${scopeEquip().map(e => `<option value="${esc(e.id)}"${e.id === sel ? ' selected' : ''}>${esc(e.name)}</option>`).join('')}</select>
       </div>
-      ${upcoming.length ? upcoming.map(b => card(b, '<button class="btn" data-act="cancel">취소</button>', clashWarn(b))).join('') : '<p class="empty">다가오는 승인된 예약이 없어요.</p>'}
+      ${upcoming.length ? upcoming.map(b => card(b, `${trainBtn(b)}<button class="btn" data-act="cancel">취소</button>`, clashWarn(b) + trainWarn(b))).join('') : '<p class="empty">다가오는 승인된 예약이 없어요.</p>'}
     </section>`;
 
   $('upEquip').onchange = ev => { prefs.upEquip = ev.target.value; savePrefs(); ev.target.blur(); renderAdmin(); };
@@ -115,7 +120,10 @@ function renderApprovals(box) {
     btn.onclick = async () => {
       const b = list.find(x => x.id === btn.closest('.item').dataset.id);
       try {
-        if (btn.dataset.act === 'approve') {
+        if (btn.dataset.act === 'train') {
+          await window.cloud.markTrained(b.equipId, { uid: b.uid, name: b.userName, labId: b.labId });
+          toast(`${b.userName}님을 교육 완료로 표시했어요`);
+        } else if (btn.dataset.act === 'approve') {
           if (clashes(b).some(o => o.status === 'approved') && !confirm('이미 승인된 예약과 겹쳐요. 그래도 승인할까요?')) return;
           await window.cloud.decide(b.id, 'approved');
           toast('승인했어요');
@@ -146,6 +154,8 @@ function renderUsers(box) {
       ${!u.labId && u.labName ? `<option value="__new">새 연구실로 추가: ${esc(u.labName)}</option>` : ''}
     </select>`;
   const managed = uid => S.equipment.filter(e => (e.managers || []).includes(uid)).map(e => e.name).join(', ');
+  // 교육 받은 기기 (이름의 괄호 앞 부분만, 사용자 화면 순서)
+  const trainedList = uid => scopeEquip().filter(e => trainedOf(e, uid)).map(e => e.name.split(' (')[0]).join(', ');
   box.innerHTML = `
     <section class="panel">
       <div class="panel-head"><h2>가입 신청</h2><span class="hint">${pend.length}건 · 승인하면 바로 사용자 화면이 열려요</span></div>
@@ -161,7 +171,7 @@ function renderUsers(box) {
     <section class="panel">
       <div class="panel-head"><h2>사용자</h2><span class="hint">${users.length}명 · 기기 담당자는 기기 탭에서 지정해요</span></div>
       <div class="table-wrap"><table class="table users-table">
-        <thead><tr><th>이름</th><th>이메일</th><th>연구실</th><th>역할</th><th>담당 기기</th><th>상태</th></tr></thead>
+        <thead><tr><th>이름</th><th>이메일</th><th>연구실</th><th>역할</th><th>담당 기기</th><th>교육 받은 기기</th><th>상태</th></tr></thead>
         <tbody>${users.map(u => {
           const me = u.id === S.user.uid;
           return `<tr data-uid="${esc(u.id)}" class="${u.active === false ? 'off' : ''}">
@@ -170,6 +180,7 @@ function renderUsers(box) {
             <td data-k="연구실">${labSelect(u, 'labId')}</td>
             <td data-k="역할"><select name="role"${me ? ' disabled title="내 역할은 바꿀 수 없어요"' : ''}><option value="member"${u.role === 'member' ? ' selected' : ''}>사용자</option><option value="admin"${u.role === 'admin' ? ' selected' : ''}>총관리자</option></select></td>
             <td data-k="담당 기기">${esc(managed(u.id)) || '<span class="hint">-</span>'}</td>
+            <td data-k="교육 받은 기기">${esc(trainedList(u.id)) || '<span class="hint">-</span>'}</td>
             <td data-k="상태"><label class="check"><input type="checkbox" name="active"${u.active !== false ? ' checked' : ''}${me ? ' disabled' : ''}> 사용 중</label></td>
           </tr>`;
         }).join('')}</tbody>
@@ -232,16 +243,22 @@ function renderEquipAdmin(box) {
         <div class="item" data-id="${esc(e.id)}">
           <div class="item-main">
             <div class="item-title"><b>${esc(e.name)}</b> ${statusChip(e)} <span class="chip ${e.requiresApproval === false ? 'quiet' : 'warn'}">${e.requiresApproval === false ? '바로 확정' : '승인 필요'}</span></div>
-            <div class="item-sub">${[e.location && `📍 ${esc(e.location)}`, `👤 ${managerNames(e).length ? esc(managerNames(e).join(', ')) : '담당자 없음'}`].filter(Boolean).join(' · ')}</div>
+            <div class="item-sub">${[e.location && `📍 ${esc(e.location)}`, `👤 ${managerNames(e).length ? esc(managerNames(e).join(', ')) : '담당자 없음'}`, e.requiresTraining && `🎓 교육 받은 사람 ${Object.keys(e.trained || {}).length}명`].filter(Boolean).join(' · ')}</div>
             ${statusLine(e) ? `<div class="item-warn">⚠ ${esc(statusLine(e))}</div>` : ''}
           </div>
           <div class="item-actions">
             <button class="btn" data-edit>✎ 수정</button>
+            ${isAdmin() ? '<button class="btn danger" data-del>삭제</button>' : ''}
           </div>
         </div>`).join('') : '<p class="empty">아직 기기가 없어요. 기기 추가로 시작해요.</p>'}
     </section>`;
   $('addEquip')?.addEventListener('click', () => openEquipEdit(null));
   box.querySelectorAll('[data-edit]').forEach(b => { b.onclick = () => openEquipEdit(b.closest('.item').dataset.id); });
+  box.querySelectorAll('[data-del]').forEach(b => { b.onclick = () => deleteEquip(equipById(b.closest('.item').dataset.id)); });
+}
+async function deleteEquip(e) {
+  if (!confirm(`'${e.name}' 기기를 삭제할까요? 예약·사용일지 기록은 남지만 화면에서는 더 볼 수 없어요.`)) return false;
+  try { await window.cloud.deleteEquipment(e.id); toast('기기를 삭제했어요'); return true; } catch (x) { fail('삭제하지 못했어요', x); return false; }
 }
 
 const SLOTS = [10, 15, 20, 30, 60, 120];
@@ -265,6 +282,7 @@ function openEquipEdit(id) {
       <fieldset>
         <legend>예약</legend>
         <label class="check"><input type="checkbox" name="requiresApproval"${e.requiresApproval !== false ? ' checked' : ''}> 담당자가 승인해야 확정 (끄면 예약하자마자 확정)</label>
+        <label class="check"><input type="checkbox" name="requiresTraining"${e.requiresTraining ? ' checked' : ''}> 처음 쓰는 사람은 교육 필요 (교육 기록이 없는 사람의 신청에 경고가 떠요)</label>
         <div class="grid2">
           <label>예약 단위<select name="slotMinutes">${SLOTS.map(m => `<option value="${m}"${m === r.slotMinutes ? ' selected' : ''}>${m}분</option>`).join('')}</select></label>
           <label>1회 최대 시간<input name="maxHours" type="number" min="0.5" step="0.5" value="${r.maxHours ?? ''}" placeholder="제한 없음"></label>
@@ -274,7 +292,9 @@ function openEquipEdit(id) {
           <label>예약 가능 끝<input name="openTo" type="time" value="${r.openTo || ''}"></label>
         </div>
         <p class="hint">비워 두면 제한 없음이에요. 예약 가능 시간대를 비우면 하루 종일 예약할 수 있어요.</p>
+        <label><span>예약 참고 <span class="hint">· 한 줄에 하나씩, 사용자 화면의 예약 규칙 아래에 보여요</span></span><textarea name="note" rows="2" maxlength="300" placeholder="예: 오퍼레이터 예약 후 이용 (직접 사용 불가)&#10;주말·공휴일 불가">${esc(r.note || '')}</textarea></label>
       </fieldset>
+      ${id ? '<fieldset id="eqTrained"></fieldset>' : ''}
       <fieldset>
         <legend>상태</legend>
         <div class="seg" id="eqStatus">${Object.entries(STATUS).map(([k, v]) => `<button type="button" data-v="${k}" class="${(e.status || 'ok') === k ? 'on' : ''}">${v}</button>`).join('')}</div>
@@ -310,16 +330,42 @@ function openEquipEdit(id) {
   $('eqAddLink').onclick = () => $('eqLinks').insertAdjacentHTML('beforeend', linkRow());
   $('eqLinks').onclick = ev => { if (ev.target.closest('.icon-btn')) ev.target.closest('.link-row').remove(); };
   $('eqClose').onclick = () => dlg.close();
-  $('eqDelete')?.addEventListener('click', async () => {
-    if (!confirm(`'${e.name}' 기기를 삭제할까요? 예약·사용일지 기록은 남지만 화면에서는 더 볼 수 없어요.`)) return;
-    try { await window.cloud.deleteEquipment(id); dlg.close(); toast('기기를 삭제했어요'); } catch (x) { fail('삭제하지 못했어요', x); }
-  });
+  // 교육 받은 사람: 누르면 바로 저장 (위 칸들의 '저장'과 따로)
+  const renderTrained = () => {
+    const cur = equipById(id) || e;
+    const list = Object.entries(cur.trained || {}).sort(([, a], [, b]) => String(a.name).localeCompare(String(b.name), 'ko'));
+    const others = people.filter(u => !cur.trained?.[u.id]);
+    $('eqTrained').innerHTML = `<legend>교육 받은 사람 <span class="hint">${list.length}명 · 누르면 바로 저장돼요</span></legend>
+      ${list.length ? list.map(([uid, x]) => `<div class="row tr-row" data-uid="${esc(uid)}"><span>${esc(x.name)} <span class="hint">${[labName(x.labId), x.date, x.byName && `${x.byName} 확인`].filter(Boolean).map(esc).join(' · ')}</span></span><button type="button" class="icon-btn small" title="교육 기록 지우기">✕</button></div>`).join('') : '<p class="hint">아직 없어요.</p>'}
+      ${admin ? `<div class="row"><select id="trPick" aria-label="교육 받은 사람 추가"><option value="">사람 고르기</option>${others.map(u => `<option value="${esc(u.id)}">${esc(u.name)}${labName(u.labId) ? ` · ${esc(labName(u.labId))}` : ''}</option>`).join('')}</select><button type="button" class="btn" id="trAdd">교육 완료로 표시</button></div>`
+        : '<p class="hint">예약 승인 탭에서 신청한 사람을 교육 완료로 표시할 수 있어요.</p>'}`;
+  };
+  if (id) {
+    renderTrained();
+    $('eqTrained').onclick = async ev => {
+      try {
+        if (ev.target.closest('.tr-row .icon-btn')) {
+          const uid = ev.target.closest('.tr-row').dataset.uid, x = equipById(id)?.trained?.[uid];
+          if (!confirm(`${x?.name || ''}님의 교육 기록을 지울까요?`)) return;
+          await window.cloud.unmarkTrained(id, uid);
+          toast('교육 기록을 지웠어요');
+        } else if (ev.target.id === 'trAdd') {
+          const u = people.find(p => p.id === $('trPick').value);
+          if (!u) return toast('사람을 골라 주세요');
+          await window.cloud.markTrained(id, { uid: u.id, name: u.name, labId: u.labId });
+          toast(`${u.name}님을 교육 완료로 표시했어요`);
+        } else return;
+        renderTrained();
+      } catch (x) { fail('교육 기록을 바꾸지 못했어요', x); }
+    };
+  }
+  $('eqDelete')?.addEventListener('click', async () => { if (await deleteEquip(e)) dlg.close(); });
 
   f.onsubmit = async ev => {
     ev.preventDefault();
     const err = m => { $('eqErr').textContent = m; };
     const num = v => (v.trim() === '' ? null : Number(v));
-    const rules = { slotMinutes: Number(f.slotMinutes.value), maxHours: num(f.maxHours.value), maxDaysAhead: num(f.maxDaysAhead.value), openFrom: f.openFrom.value || null, openTo: f.openTo.value || null };
+    const rules = { slotMinutes: Number(f.slotMinutes.value), maxHours: num(f.maxHours.value), maxDaysAhead: num(f.maxDaysAhead.value), openFrom: f.openFrom.value || null, openTo: f.openTo.value || null, note: f.note.value.trim() };
     if (admin && !f.name.value.trim()) return err('기기 이름을 적어 주세요.');
     if (rules.maxHours != null && !(rules.maxHours > 0)) return err('1회 최대 시간은 0보다 커야 해요.');
     if (rules.maxDaysAhead != null && !(Number.isInteger(rules.maxDaysAhead) && rules.maxDaysAhead >= 0)) return err('며칠 앞까지는 0 이상의 정수로 적어 주세요.');
@@ -331,7 +377,7 @@ function openEquipEdit(id) {
     const down = status !== 'ok';
     // 담당자가 고칠 수 있는 칸 (firestore.rules와 같은 목록)
     const data = {
-      requiresApproval: f.requiresApproval.checked, rules,
+      requiresApproval: f.requiresApproval.checked, requiresTraining: f.requiresTraining.checked, rules,
       status, statusNote: down ? f.statusNote.value.trim() : '', statusUntil: down ? fromLocalInput(f.statusUntil.value) : null,
       manual: { body: f.body.value, links },
     };

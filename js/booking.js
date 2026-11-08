@@ -173,6 +173,7 @@ function openBookingDlg(e, start, end) {
     <form class="form" id="bookForm">
       <h2>${t(approval ? '{name} 예약 신청' : '{name} 예약', { name: esc(e.name) })}</h2>
       <p class="hint">${ruleList(e).map(esc).join(' · ')}</p>
+      ${e.requiresTraining && !trainedOf(e) ? `<p class="notice">🎓 ${esc(t('교육 기록이 없어요. 처음 쓰는 기기라면 교육을 먼저 받아요. 매뉴얼의 문의처나 담당자에게 연락해요.'))}</p>` : ''}
       <div class="grid2">
         <label>${t('시작 날짜')}<input type="date" name="sDate" required value="${ymd(start)}"></label>
         <label>${t('시작 시각')}<select name="sTime">${timeOptions(r.slotMinutes)}</select></label>

@@ -244,3 +244,6 @@ firebase-config.js는 null로 두고, 설정이 없을 때 안내 화면이 나�
 | 통계 | 끝난 승인 예약만, 예약이 시작한 달 기준 |
 | 저장소 이름 | `kkonoo/equip-hub` → `kkonoo/equip-med`로 바뀜. 주소 https://kkonoo.github.io/equip-med/, manifest id `/equip-med/`, 저장 키·캐시 이름·백업 파일은 `equip-med-`로 시작. 위 본문의 equip-hub는 equip-med로 읽기 |
 | 영어 화면 | 사용자 화면(로그인 · 가입 · 예약 · 내 예약 · 기기 · 설정)만 한국어 / English. 관리자 페이지는 한국어 |
+| 기기 묶음 · 순서 | 위치의 첫 단어(호수)로 묶음. N호수 오름차순 → 다른 호수 → 호수 없는 곳, 묶음 안은 이름 abc순. 관리자 목록도 같은 순서라 순서 버튼은 없앰 |
+| 교육 기록 | equipment.requiresTraining(교육 필요) + equipment.trained{uid: {name, labId, date, by, byName}}. 예약은 막지 않고 승인 화면에 경고. 표시는 그 기기 담당자 · 총관리자 (rules: 담당자가 고칠 수 있는 칸에 requiresTraining · trained 추가) |
+| 예약 참고 | equipment.rules.note (여러 줄 글). 예약 규칙 목록 끝에 한 줄씩 |

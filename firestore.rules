@@ -50,14 +50,15 @@ service cloud.firestore {
 
     // ---------- 기기 ----------
     function validEquip(d) {
-      return d.status in ['ok', 'maintenance', 'broken'] && d.requiresApproval is bool && d.rules is map;
+      return d.status in ['ok', 'maintenance', 'broken'] && d.requiresApproval is bool && d.rules is map
+        && d.get('requiresTraining', false) is bool && d.get('trained', {}) is map; // 교육 필요 여부, 교육 기록 {uid: {...}}
     }
     match /equipment/{equipId} {
       allow read: if approved();
       allow create: if isAdmin() && validEquip(request.resource.data);
       allow delete: if isAdmin();
       allow update: if validEquip(request.resource.data) && (isAdmin()
-        || (isManager(equipId) && onlyChanged(['manual', 'rules', 'status', 'statusNote', 'statusUntil', 'requiresApproval', 'updatedAt'])));
+        || (isManager(equipId) && onlyChanged(['manual', 'rules', 'status', 'statusNote', 'statusUntil', 'requiresApproval', 'requiresTraining', 'trained', 'updatedAt'])));
     }
 
     // ---------- 예약 ----------

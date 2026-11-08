@@ -15,10 +15,19 @@ function renderEquipment() {
       ${placeRest(e) ? `<span class="hint">${esc(placeRest(e))}</span>` : ''}
       <span class="hint">👤 ${managerNames(e).length ? esc(managerNames(e).join(', ')) : t('담당자 없음')}</span>
       ${statusLine(e) ? `<span class="hint warn-text">⚠ ${esc(statusLine(e))}</span>` : ''}
-      <span class="chips"><span class="chip ${e.requiresApproval === false ? 'quiet' : 'warn'}">${e.requiresApproval === false ? t('바로 확정') : t('승인 필요')}</span></span>
+      <span class="chips"><span class="chip ${e.requiresApproval === false ? 'quiet' : 'warn'}">${e.requiresApproval === false ? t('바로 확정') : t('승인 필요')}</span>${trainChip(e)}</span>
     </button>`).join('')}</div>
     </section>`).join('');
   box.querySelectorAll('.eq-card').forEach(b => { b.onclick = () => openEquip(b.dataset.id); });
+}
+
+// 교육이 필요한 기기: 내가 교육 받았는지
+const trainChip = e => (!e.requiresTraining ? '' : trainedOf(e) ? `<span class="chip ok">🎓 ${t('교육 받음')}</span>` : `<span class="chip warn">🎓 ${t('교육 필요')}</span>`);
+function trainNotice(e) {
+  if (!e.requiresTraining) return '';
+  const tr = trainedOf(e);
+  return tr ? `<p class="hint">🎓 ${esc(t('{date} 교육 받음', { date: tr.date }))}</p>`
+    : `<p class="notice">🎓 ${esc(t('교육 기록이 없어요. 처음 쓰는 기기라면 교육을 먼저 받아요. 매뉴얼의 문의처나 담당자에게 연락해요.'))}</p>`;
 }
 
 function openEquip(id) {
@@ -30,6 +39,7 @@ function openEquip(id) {
       <h2 class="dlg-title">${esc(e.name)} ${statusChip(e)}</h2>
       <p class="hint">${[e.location && `📍 ${esc(e.location)}`, `👤 ${managerNames(e).length ? esc(managerNames(e).join(', ')) : t('담당자 없음')}`].filter(Boolean).join(' · ')}</p>
       ${statusLine(e) ? `<p class="notice">⚠ ${esc(statusLine(e))}</p>` : ''}
+      ${trainNotice(e)}
       <section>
         <h3>${t('매뉴얼')}</h3>
         ${e.manual?.body ? `<div class="manual">${esc(e.manual.body)}</div>` : `<p class="hint">${t('아직 매뉴얼이 없어요.')}</p>`}

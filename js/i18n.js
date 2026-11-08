@@ -82,6 +82,9 @@ const EN = {
   '아직 등록된 기기가 없어요. 총관리자가 추가하면 여기에 보여요.': 'No equipment yet. It will show up here once the administrator adds it.',
   '아직 등록된 기기가 없어요.': 'No equipment yet.',
   '위치 없음': 'No location',
+  '처음 쓰는 사람은 교육을 받아야 해요': 'First-time users need training',
+  '교육 받음': 'Trained', '교육 필요': 'Training needed', '{date} 교육 받음': 'Trained on {date}',
+  '교육 기록이 없어요. 처음 쓰는 기기라면 교육을 먼저 받아요. 매뉴얼의 문의처나 담당자에게 연락해요.': 'You have no training record. If this is your first time with this equipment, get trained first: contact the person in the manual or the manager.',
   '매뉴얼': 'Manual', '아직 매뉴얼이 없어요.': 'No manual yet.', '링크': 'Links', '예약 규칙': 'Booking rules', '예약하기': 'Book this',
   // 예약 탭
   '이전': 'Previous', '오늘': 'Today', '다음': 'Next', '점검·고장': 'Maintenance', '예약 불가': 'Not bookable',

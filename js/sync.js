@@ -154,6 +154,11 @@ async function start() {
       return id ? F.updateDoc(ref('equipment', id), d) : F.addDoc(col('equipment'), d);
     },
     deleteEquipment: id => F.deleteDoc(ref('equipment', id)),
+    // 교육 기록: equipment.trained.{uid} (담당자·총관리자). 날짜는 서울 기준 그날
+    markTrained: (equipId, { uid, name, labId }) => F.updateDoc(ref('equipment', equipId),
+      new F.FieldPath('trained', uid), { name, labId: labId || null, date: ymd(Date.now()), by: S.user.uid, byName: S.me.name },
+      'updatedAt', now()),
+    unmarkTrained: (equipId, uid) => F.updateDoc(ref('equipment', equipId), new F.FieldPath('trained', uid), F.deleteField(), 'updatedAt', now()),
     reorder: (name, ids) => { // 목록 순서대로 order = 1, 2, 3…
       const b = F.writeBatch(fs);
       ids.forEach((id, i) => b.update(ref(name, id), { order: i + 1 }));
