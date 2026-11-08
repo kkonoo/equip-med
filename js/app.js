@@ -218,7 +218,7 @@ const GATES = {
   verify: () => `
     <h2>${t('메일 인증이 필요해요')}</h2>
     <p>${t('{email}로 인증 메일을 보냈어요. 메일의 링크를 누른 뒤 인증했어요를 눌러 주세요. 메일이 안 보이면 스팸함도 확인해 주세요.', { email: `<b>${esc(S.user?.email || '')}</b>` })}</p>
-    <p class="hint">${t('학교 메일(knu.ac.kr)로는 인증 메일이 잘 오지 않아요 (학생 계정은 지메일 기반이라 지메일 로그인 가능해요). 안 오면 로그아웃하고 개인 지메일 같은 구글 계정으로 로그인해 주세요.')}</p>
+    <p class="hint">${t('학교 메일(knu.ac.kr)로는 인증 메일이 잘 오지 않아요 (학생 학교 계정은 지메일 기반이라 지메일 로그인 가능해요). 안 오면 로그아웃하고 개인 지메일 같은 구글 계정으로 로그인해 주세요.')}</p>
     <div class="actions"><button class="btn" id="gateLogout">${t('로그아웃')}</button><button class="btn" id="verifyResend">${t('메일 다시 보내기')}</button><button class="btn primary" id="verifyDone">${t('인증했어요')}</button></div>`,
   signup: () => `
     <h2>${t('가입 신청')}</h2>
