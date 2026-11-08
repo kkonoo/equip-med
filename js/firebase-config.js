@@ -10,4 +10,4 @@ export const firebaseConfig = {
   appId: '1:861542181704:web:766aceaeb0eabc97b8a17d',
 };
 // 매뉴얼 파일 올리기: tools/drive-upload.gs 를 Apps Script 웹 앱으로 배포한 주소 (…/exec). null 이면 '파일 올리기' 버튼이 없어요
-export const manualUploadUrl = null;
+export const manualUploadUrl = 'https://script.google.com/macros/s/AKfycbzWMxcro9rEPcUIcyLYd8IfhkNxIYza6BleW__f655_HXHuxfgvfKG7c_61l-kR91WM/exec';
