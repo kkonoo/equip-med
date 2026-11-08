@@ -66,7 +66,7 @@ function ruleList(e) {
     r.maxDaysAhead != null ? t('오늘부터 {n}일 뒤까지 예약', { n: r.maxDaysAhead }) : t('며칠 앞이든 예약'),
     r.openFrom && r.openTo ? t('예약 가능 {from}–{to}', { from: r.openFrom, to: r.openTo }) : t('하루 종일 예약 가능'),
     e.requiresApproval === false ? t('예약하면 바로 확정') : t('담당자 승인 뒤 확정'),
-    ...(e.requiresTraining ? [t('처음 쓰는 사람은 교육을 받아야 해요')] : []),
+    ...(e.requiresTraining ? [t('처음 쓰는 사람은 교육 필요')] : []),
     ...String(r.note || '').split('\n').map(s => s.trim()).filter(Boolean), // 예약 참고 (관리자가 적은 그대로)
   ];
 }
