@@ -63,7 +63,7 @@ const EN = {
   '처음이면 메일과 비밀번호(6자 이상)를 적고 계정 만들기를 눌러요. 학교 지메일·개인 구글 계정은 위 Google로 로그인을 써요.': 'First time? Enter your email and a password (6+ characters) and press Create account. For a Gmail-based school account or a personal Google account, use Sign in with Google above.',
   '메일 인증이 필요해요': 'Please verify your email',
   '{email}로 인증 메일을 보냈어요. 메일의 링크를 누른 뒤 인증했어요를 눌러 주세요. 메일이 안 보이면 스팸함도 확인해 주세요.': 'We sent a verification email to {email}. Click the link in it, then press I verified. If you cannot find it, check your spam folder.',
-  '학교 메일(knu.ac.kr)로는 인증 메일이 잘 오지 않아요. 안 오면 로그아웃하고 개인 지메일 같은 구글 계정으로 로그인해 주세요.': 'School email (knu.ac.kr) often does not receive the verification email. If it does not arrive, sign out and sign in with a Google account such as a personal Gmail.',
+  '학교 메일(knu.ac.kr)로는 인증 메일이 잘 오지 않아요 (학생 계정은 지메일 기반이라 지메일 로그인 가능해요). 안 오면 로그아웃하고 개인 지메일 같은 구글 계정으로 로그인해 주세요.': 'School email (knu.ac.kr) often does not receive the verification email (student accounts are Gmail-based, so students can use Sign in with Google). If it does not arrive, sign out and sign in with a Google account such as a personal Gmail.',
   '메일 다시 보내기': 'Resend email', '인증했어요': 'I verified', '인증 메일을 다시 보냈어요': 'Verification email sent again',
   '아직 인증되지 않았어요. 메일의 링크를 눌러 주세요': 'Not verified yet. Please click the link in the email',
   '이메일이나 비밀번호가 맞지 않아요': 'Wrong email or password',
